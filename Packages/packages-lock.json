@@ -1,11 +1,11 @@
 {
   "dependencies": {
     "com.cysharp.unitask": {
-      "version": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
+      "version": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.0.24",
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "6dd2b464a33284d32aa01990203ab164cb282428"
+      "hash": "887db5b281cc797313eed1b7dae7ff14df224d4e"
     },
     "com.unity.ext.nunit": {
       "version": "1.0.0",
