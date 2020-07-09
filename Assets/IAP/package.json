@@ -5,7 +5,7 @@
     "unity": "2019.4",
     "description": "Fanamstick In-App-Purchase Manager",
     "dependencies": {
-        "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
+        "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.0.24",
         "com.unity.purchasing": "2.0.6"
     }
 }
