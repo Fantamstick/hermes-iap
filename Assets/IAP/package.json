@@ -6,7 +6,6 @@
     "type": "library",
     "description": "Fanamstick In-App-Purchase Manager",
     "dependencies": {
-        "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=Assets/UniRx.Async",
         "com.unity.purchasing": "2.0.6"
     }
 }
