@@ -30,6 +30,16 @@ namespace FantamIAP {
 
         IStoreController storeController;
 
+        /// <summary>
+        /// Result of product purchase.
+        /// </summary>
+        public event Action<PurchaseResponse, Product> OnPurchased;
+#if IOS
+        /// <summary>
+        /// Purchase request was deferred to parent.
+        /// </summary>
+        public event Action<Product> OnPurchaseDeferred;
+#endif
         //*******************************************************************
         // INIT
         //*******************************************************************
@@ -43,6 +53,32 @@ namespace FantamIAP {
         ///     Is IAP Manager initialized.
         /// </summary>
         public bool IsInit => initStatus == InitStatus.Ok;
+
+        public void Init(Dictionary<string, ProductType> products, Action<InitStatus> onDone) {
+            Init(products, StandardPurchasingModule.Instance(), onDone);
+        }
+
+        public void Init(Dictionary<string, ProductType> products, IPurchasingModule purchasingModel,
+            Action<InitStatus> onDone) {
+            var builder = ConfigurationBuilder.Instance(purchasingModel);
+#if IOS
+            // Verify if purchases are possible on this iOS device.
+            var canMakePayments = builder.Configure<IAppleConfiguration>().canMakePayments;
+            if (!canMakePayments) {
+                onDone(InitStatus.PurchasingDisabled);
+                return;
+            }
+
+            appleConfig = builder.Configure<IAppleConfiguration>();
+#endif
+            // Add Products to store.
+            foreach (var key in products.Keys) {
+                builder.AddProduct(key, products[key]);
+            }
+
+            onInitDone = onDone;
+            UnityPurchasing.Initialize(this, builder);
+        }
 
         void IStoreListener.OnInitialized(IStoreController controller, IExtensionProvider extensions) {
             storeController = controller;
@@ -77,6 +113,150 @@ namespace FantamIAP {
             }
 
             onInitDone(initStatus);
+        }
+
+        //*******************************************************************
+        // SUBSCRIPTION
+        //*******************************************************************
+        /// <summary>
+        /// Is specified subscription active.
+        /// </summary>
+        /// <param name="productId">Product id.</param>
+        public bool IsSubscriptionActive(string productId) {
+            Product product = GetPurchasedSubscription(productId);
+            if (product == null) {
+                return false;
+            }
+            
+            var expireDate = GetSubscriptionExpiration(productId);
+            if (!expireDate.HasValue) {
+                return false;
+            }
+            
+            // instance is later than now
+            return expireDate.Value.CompareTo(DateTime.Now) > 0;
+        }
+        
+        /// <summary>
+        /// Get subscription expiration date.
+        /// </summary>
+        /// <param name="productId">Product ID</param>
+        /// <returns>Expiration date. Null if already expired</returns>
+        public DateTime? GetSubscriptionExpiration(string productId) {
+            Product product = GetPurchasedSubscription(productId);
+            if (product == null) {
+                return null;
+            }
+
+            return new SubscriptionManager(product, null).getSubscriptionInfo().getExpireDate();
+        }
+        
+        Product GetPurchasedSubscription(string productId) {
+            var product = GetAvailableProducts().FirstOrDefault(p => p.definition.id == productId);
+
+            if (product == null) {
+                Debug.LogWarning($"Product id: ${productId} does not exist!");
+                return null;
+            }
+            if (product.definition.type != ProductType.Subscription) {
+                Debug.LogWarning($"{productId} is not a subscription!");
+                return null;
+            }
+            if (!product.hasReceipt) {
+                Debug.Log($"Subscript {productId} is not purchased");
+                return null;
+            }
+            if (!ValidSubscriptionFormat(product.receipt)) {
+                Debug.LogWarning($"Subscript with receipt: ${product.receipt} is not a valid subscription!");
+                return null;
+            }
+
+            return product;
+        }
+        
+
+        
+        bool ValidSubscriptionFormat(string receipt) {
+            const string JsonKey = "json";
+            const string StoreKey = "Store";
+            const string PayloadKey = "Payload";
+            const string devPayloadKey = "developerPayload";
+
+            var receiptWrapper = JsonUtility.FromJson<Dictionary<string, object>>(receipt);
+            if (!receiptWrapper.ContainsKey(StoreKey) || !receiptWrapper.ContainsKey(PayloadKey)) {
+                Debug.Log("The subscription product receipt does not contain enough information");
+                return false;
+            }
+
+            var payload = (string) receiptWrapper[PayloadKey];
+            if (payload != null) {
+                var store = (string) receiptWrapper[StoreKey];
+                switch (store) {
+                    case GooglePlay.Name:
+                        var payloadWrapper = JsonUtility.FromJson<Dictionary<string, object>>(payload);
+                        if (!payloadWrapper.ContainsKey(JsonKey)) {
+                            Debug.Log(
+                                $"The product receipt does not contain enough information, the '${JsonKey}' field is missing");
+                            return false;
+                        }
+
+                        var origJsonPayloadWrapper =
+                            JsonUtility.FromJson<Dictionary<string, object>>((string) payloadWrapper[JsonKey]);
+                        if (origJsonPayloadWrapper == null || !origJsonPayloadWrapper.ContainsKey(devPayloadKey)) {
+                            Debug.Log(
+                                $"The product receipt does not contain enough information, the '{devPayloadKey}' field is missing");
+                            return false;
+                        }
+
+                        var devPayloadJson = (string) origJsonPayloadWrapper[devPayloadKey];
+                        var devPayloadWrapper = JsonUtility.FromJson<Dictionary<string, object>>(devPayloadJson);
+                        if (devPayloadWrapper == null || !devPayloadWrapper.ContainsKey("is_free_trial") ||
+                            !devPayloadWrapper.ContainsKey("has_introductory_price_trial")) {
+                            Debug.Log(
+                                "The product receipt does not contain enough information, the product is not purchased using 1.19 or later");
+                            return false;
+                        }
+
+                        return true;
+
+                    case AppleAppStore.Name:
+                    case AmazonApps.Name:
+                    case MacAppStore.Name:
+                        return true;
+
+                    default:
+                        return false;
+                }
+            }
+
+            return false;
+        }
+
+        //*******************************************************************
+        // PURCHASE
+        //*******************************************************************
+        /// <summary>
+        /// Try to Purchase a product
+        /// </summary>
+        public void PurchaseProduct(string productId) {
+            if (!IsInit) {
+                Debug.LogError("Cannot purchase product. IAPManager not successfully initialized!");
+                return;
+            }
+
+            var product = storeController.products.WithID(productId);
+            if (product == null) {
+                Debug.LogWarning("Cannot purchase product. Not found!");
+                return;
+            }
+
+            if (!product.availableToPurchase) {
+                Debug.LogWarning("Cannot purchase product. Not available for purchase!");
+                return;
+            }
+
+            // try to purchase product.
+            storeController.InitiatePurchase(product);
         }
 
         PurchaseProcessingResult IStoreListener.ProcessPurchase(PurchaseEventArgs e) {
@@ -160,150 +340,6 @@ namespace FantamIAP {
                     OnPurchased?.Invoke(PurchaseResponse.Unknown, p);
                     break;
             }
-        }
-
-        /// <summary>
-        /// Result of product purchase.
-        /// </summary>
-        public event Action<PurchaseResponse, Product> OnPurchased;
-#if IOS
-        /// <summary>
-        /// Purchase request was deferred to parent.
-        /// </summary>
-        public event Action<Product> OnPurchaseDeferred;
-#endif
-
-        public void InitAsync(Dictionary<string, ProductType> products, Action<InitStatus> onDone) {
-            InitAsync(products, StandardPurchasingModule.Instance(), onDone);
-        }
-
-        public void InitAsync(Dictionary<string, ProductType> products, IPurchasingModule purchasingModel,
-            Action<InitStatus> onDone) {
-            var builder = ConfigurationBuilder.Instance(purchasingModel);
-#if IOS
-            // Verify if purchases are possible on this iOS device.
-            var canMakePayments = builder.Configure<IAppleConfiguration>().canMakePayments;
-            if (!canMakePayments) {
-                onDone(InitStatus.PurchasingDisabled);
-                return;
-            }
-
-            appleConfig = builder.Configure<IAppleConfiguration>();
-#endif
-            // Add Products to store.
-            foreach (var key in products.Keys) builder.AddProduct(key, products[key]);
-
-            onInitDone = onDone;
-            UnityPurchasing.Initialize(this, builder);
-        }
-
-        //*******************************************************************
-        // SUBSCRIPTION
-        //*******************************************************************
-        /// <summary>
-        /// Is specified subscription active.
-        /// </summary>
-        /// <param name="receipt">Product receipt.</param>
-        public bool IsSubscriptionActive(string receipt) {
-            var product = GetAvailableProducts().FirstOrDefault(p => p.receipt == receipt);
-            if (product == null) {
-                Debug.LogWarning($"Subscript with receipt: ${receipt} does not exist!");
-                return false;
-            }
-
-            if (!ValidSubscriptionFormat(receipt)) {
-                Debug.LogWarning($"Subscript with receipt: ${receipt} is not a valid subscription!");
-                return false;
-            }
-
-            var subscription = new SubscriptionManager(product, null).getSubscriptionInfo();
-            var expireDate = subscription.getExpireDate();
-
-            // instance is later than now
-            return expireDate.CompareTo(DateTime.Now) > 0;
-        }
-
-        bool ValidSubscriptionFormat(string receipt) {
-            const string JsonKey = "json";
-            const string StoreKey = "Store";
-            const string PayloadKey = "Payload";
-            const string devPayloadKey = "developerPayload";
-
-            var receiptWrapper = JsonUtility.FromJson<Dictionary<string, object>>(receipt);
-            if (!receiptWrapper.ContainsKey(StoreKey) || !receiptWrapper.ContainsKey(PayloadKey)) {
-                Debug.Log("The subscription product receipt does not contain enough information");
-                return false;
-            }
-
-            var payload = (string) receiptWrapper[PayloadKey];
-            if (payload != null) {
-                var store = (string) receiptWrapper[StoreKey];
-                switch (store) {
-                    case GooglePlay.Name:
-                        var payloadWrapper = JsonUtility.FromJson<Dictionary<string, object>>(payload);
-                        if (!payloadWrapper.ContainsKey(JsonKey)) {
-                            Debug.Log(
-                                $"The product receipt does not contain enough information, the '${JsonKey}' field is missing");
-                            return false;
-                        }
-
-                        var origJsonPayloadWrapper =
-                            JsonUtility.FromJson<Dictionary<string, object>>((string) payloadWrapper[JsonKey]);
-                        if (origJsonPayloadWrapper == null || !origJsonPayloadWrapper.ContainsKey(devPayloadKey)) {
-                            Debug.Log(
-                                $"The product receipt does not contain enough information, the '{devPayloadKey}' field is missing");
-                            return false;
-                        }
-
-                        var devPayloadJson = (string) origJsonPayloadWrapper[devPayloadKey];
-                        var devPayloadWrapper = JsonUtility.FromJson<Dictionary<string, object>>(devPayloadJson);
-                        if (devPayloadWrapper == null || !devPayloadWrapper.ContainsKey("is_free_trial") ||
-                            !devPayloadWrapper.ContainsKey("has_introductory_price_trial")) {
-                            Debug.Log(
-                                "The product receipt does not contain enough information, the product is not purchased using 1.19 or later");
-                            return false;
-                        }
-
-                        return true;
-
-                    case AppleAppStore.Name:
-                    case AmazonApps.Name:
-                    case MacAppStore.Name:
-                        return true;
-
-                    default:
-                        return false;
-                }
-            }
-
-            return false;
-        }
-
-        //*******************************************************************
-        // PURCHASE
-        //*******************************************************************
-        /// <summary>
-        /// Try to Purchase a product
-        /// </summary>
-        public void PurchaseProduct(string productId) {
-            if (!IsInit) {
-                Debug.LogError("Cannot purchase product. IAPManager not successfully initialized!");
-                return;
-            }
-
-            var product = storeController.products.WithID(productId);
-            if (product == null) {
-                Debug.LogWarning("Cannot purchase product. Not found!");
-                return;
-            }
-
-            if (!product.availableToPurchase) {
-                Debug.LogWarning("Cannot purchase product. Not available for purchase!");
-                return;
-            }
-
-            // try to purchase product.
-            storeController.InitiatePurchase(product);
         }
 
         //*******************************************************************
