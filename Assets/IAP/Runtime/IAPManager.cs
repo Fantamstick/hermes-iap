@@ -58,8 +58,12 @@ namespace FantamIAP {
             Init(products, StandardPurchasingModule.Instance(), onDone);
         }
 
-        public void Init(Dictionary<string, ProductType> products, IPurchasingModule purchasingModel,
-            Action<InitStatus> onDone) {
+        public void Init(Dictionary<string, ProductType> products, IPurchasingModule purchasingModel, Action<InitStatus> onDone) {
+            if (IsInit) {
+                onInitDone(initStatus);
+                return;
+            }
+            
             var builder = ConfigurationBuilder.Instance(purchasingModel);
 #if IOS
             // Verify if purchases are possible on this iOS device.
@@ -94,6 +98,11 @@ namespace FantamIAP {
             onInitDone(initStatus);
         }
 
+        /// <summary>
+        /// Initialization failed.
+        /// This is NOT called when device is offline.
+        /// Device will continuously try to init until device is online.
+        /// </summary>
         void IStoreListener.OnInitializeFailed(InitializationFailureReason error) {
             Debug.LogWarning($"IAP init error: {error}");
 
@@ -374,6 +383,28 @@ namespace FantamIAP {
 
             var apple = extensions.GetExtension<IAppleExtensions>();
             apple.RestoreTransactions(result => { Debug.Log("RestorePurchases continuing: " + result); });
+        }
+        
+        //*******************************************************************
+        // REFRESH
+        //*******************************************************************
+        /// <summary>
+        /// Refresh purchases
+        /// </summary>
+        public void RefreshPurchases(Action<bool> onDone = null) {
+            if (!IsInit) {
+                Debug.LogError("Cannot refresh purchases. IAPManager not successfully initialized!");
+                return;
+            }
+
+            var apple = extensions.GetExtension<IAppleExtensions>();
+            apple.RefreshAppReceipt(successCallback: (success) => {
+                Debug.Log("Successfully refreshed purchases");
+                onDone?.Invoke(true);
+            }, errorCallback: () => {
+                Debug.Log("Refreshed purchase error");
+                onDone?.Invoke(false);
+            });
         }
 #endif
     }
