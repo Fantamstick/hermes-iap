@@ -10,6 +10,8 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
+using UnityEngine.Purchasing.Security;
+
 #if IAP_RECEIPT_VALIDATION
 using UnityEngine.Purchasing.Security;
 #endif
@@ -25,11 +27,11 @@ namespace FantamIAP {
 #endif
         IExtensionProvider extensions;
         InitStatus initStatus;
-
         Action<InitStatus> onInitDone;
-
         IStoreController storeController;
-
+        byte[] appleTangleData;
+        byte[] googleTangleData;
+        
         /// <summary>
         /// Result of product purchase.
         /// </summary>
@@ -50,21 +52,20 @@ namespace FantamIAP {
         public static IAPManager Instance => instance ?? new IAPManager();
 
         /// <summary>
-        ///     Is IAP Manager initialized.
+        /// Is IAP Manager initialized.
         /// </summary>
         public bool IsInit => initStatus == InitStatus.Ok;
 
-        public void Init(Dictionary<string, ProductType> products, Action<InitStatus> onDone) {
-            Init(products, StandardPurchasingModule.Instance(), onDone);
-        }
-
-        public void Init(Dictionary<string, ProductType> products, IPurchasingModule purchasingModel, Action<InitStatus> onDone) {
+        public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone) {
             if (IsInit) {
                 onInitDone(initStatus);
                 return;
             }
-            
-            var builder = ConfigurationBuilder.Instance(purchasingModel);
+
+            appleTangleData = iapBuilder.AppleTangleData ?? null;
+            googleTangleData = iapBuilder.GoogleTangleData ?? null;
+            var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
+            var builder = ConfigurationBuilder.Instance(module);
 #if IOS
             // Verify if purchases are possible on this iOS device.
             var canMakePayments = builder.Configure<IAppleConfiguration>().canMakePayments;
@@ -76,8 +77,8 @@ namespace FantamIAP {
             appleConfig = builder.Configure<IAppleConfiguration>();
 #endif
             // Add Products to store.
-            foreach (var key in products.Keys) {
-                builder.AddProduct(key, products[key]);
+            foreach (var key in iapBuilder.Products.Keys) {
+                builder.AddProduct(key, iapBuilder.Products[key]);
             }
 
             onInitDone = onDone;
@@ -182,9 +183,7 @@ namespace FantamIAP {
 
             return product;
         }
-        
 
-        
         bool ValidSubscriptionFormat(string receipt) {
             const string JsonKey = "json";
             const string StoreKey = "Store";
@@ -269,11 +268,28 @@ namespace FantamIAP {
         }
 
         PurchaseProcessingResult IStoreListener.ProcessPurchase(PurchaseEventArgs e) {
-#if IAP_RECEIPT_VALIDATION
-            try {
 #if IOS
+            return ProcessIosPurchase(e);
+#elif UNITY_ANDROID
+            return ProcessGooglePurchase(e);
+#else
+            Debug.LogWarning("Receipt validation not available for current platform");
+            OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+            return PurchaseProcessingResult.Complete;
+#endif
+        }
+        
+        PurchaseProcessingResult ProcessIosPurchase(PurchaseEventArgs e) {
+            // receipt validation tangle data not available.
+            if (appleTangleData == null) {
+                OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+                return PurchaseProcessingResult.Complete;
+            }
+            
+            // validate receipt.
+            try {
                 var receiptData = System.Convert.FromBase64String(appleConfig.appReceipt);
-                AppleReceipt receipt = new AppleValidator(AppleTangle.Data()).Validate(receiptData);
+                AppleReceipt receipt = new AppleValidator(appleTangleData).Validate(receiptData);
 
                 foreach (AppleInAppPurchaseReceipt receipts in receipt.inAppPurchaseReceipts) {
                     Debug.Log($"Valid receipt");
@@ -288,9 +304,25 @@ namespace FantamIAP {
                     Debug.Log($"Subsc Expiration Date: ${receipts.subscriptionExpirationDate}");
                     Debug.Log($"Free trial: {receipts.isFreeTrial}");
                 }
-#elif UNITY_ANDROID
-                var validator =
- new CrossPlatformValidator(GooglePlayTangle.Data(), AppleTangle.Data(), Application.identifier);
+                OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+            } catch (IAPSecurityException err) {
+                Debug.Log($"Invalid receipt or security exception: {err.Message}");
+                OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
+            }
+
+            return PurchaseProcessingResult.Complete;
+        }
+        
+        PurchaseProcessingResult ProcessGooglePurchase(PurchaseEventArgs e) {
+            // receipt validation tangle data not available.
+            if (googleTangleData == null) {
+                OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+                return PurchaseProcessingResult.Complete;
+            }
+            
+            // validate receipt.
+            try {
+                var validator = new CrossPlatformValidator(googleTangleData, appleTangleData, Application.identifier);
                 // On Google Play, result has a single product ID.
                 // On Apple stores, receipts contain multiple products.
                 var result = validator.Validate(e.purchasedProduct.receipt);
@@ -307,13 +339,12 @@ namespace FantamIAP {
                         Debug.Log(googleReceipt.purchaseToken);
                     }
                 }
-#endif
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
             } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");
                 OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
             }
-#endif
+
             return PurchaseProcessingResult.Complete;
         }
 
