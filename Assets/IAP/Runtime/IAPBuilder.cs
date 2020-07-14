@@ -31,7 +31,7 @@ namespace FantamIAP {
         /// <summary>
         /// Add Apple tangle data for IAP receipt validation.
         /// </summary>
-        public static IAPBuilder AddAppleTangleData(this IAPBuilder builder, byte[] tangleData) {
+        public static IAPBuilder WithAppleTangleData(this IAPBuilder builder, byte[] tangleData) {
             builder.AppleTangleData = tangleData;
             return builder;
         }

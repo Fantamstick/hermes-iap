@@ -12,16 +12,12 @@ using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
 using UnityEngine.Purchasing.Security;
 
-#if IAP_RECEIPT_VALIDATION
-using UnityEngine.Purchasing.Security;
-#endif
-
 namespace FantamIAP {
     /// <summary>
     /// In-App Purchase Manager.
     /// </summary>
     public class IAPManager : IStoreListener {
-        static readonly IAPManager instance = default;
+        public static IAPManager Instance { get; } = new IAPManager();
 #if IOS
         IAppleConfiguration appleConfig;
 #endif
@@ -48,8 +44,6 @@ namespace FantamIAP {
         // Prevent class from being instanced.
         IAPManager() {
         }
-
-        public static IAPManager Instance => instance ?? new IAPManager();
 
         /// <summary>
         /// Is IAP Manager initialized.
@@ -96,6 +90,8 @@ namespace FantamIAP {
                 OnPurchaseDeferred?.Invoke(product);
             });
 #endif
+            Debug.Log("IAP Manager successfully initialized");
+            
             onInitDone(initStatus);
         }
 
