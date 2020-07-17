@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
@@ -129,11 +130,6 @@ namespace FantamIAP {
         /// </summary>
         /// <param name="productId">Product id.</param>
         public bool IsSubscriptionActive(string productId) {
-            Product product = GetPurchasedSubscription(productId);
-            if (product == null) {
-                return false;
-            }
-            
             var expireDate = GetSubscriptionExpiration(productId);
             if (!expireDate.HasValue) {
                 return false;
@@ -149,15 +145,10 @@ namespace FantamIAP {
         /// <param name="productId">Product ID</param>
         /// <returns>Expiration date. Null if already expired</returns>
         public DateTime? GetSubscriptionExpiration(string productId) {
-            Product product = GetPurchasedSubscription(productId);
-            if (product == null) {
-                return null;
-            }
-
-            return new SubscriptionManager(product, null).getSubscriptionInfo().getExpireDate();
+            return GetPurchasedSubscription(productId)?.getExpireDate();
         }
         
-        Product GetPurchasedSubscription(string productId) {
+        SubscriptionInfo GetPurchasedSubscription(string productId) {
             var product = GetAvailableProducts().FirstOrDefault(p => p.definition.id == productId);
 
             if (product == null) {
@@ -169,71 +160,17 @@ namespace FantamIAP {
                 return null;
             }
             if (!product.hasReceipt) {
-                Debug.Log($"Subscript {productId} is not purchased");
+                Debug.Log($"Subscription {productId} is not purchased");
                 return null;
             }
-            if (!ValidSubscriptionFormat(product.receipt)) {
-                Debug.LogWarning($"Subscript with receipt: ${product.receipt} is not a valid subscription!");
+            
+            var subscription = new SubscriptionManager(product, null).getSubscriptionInfo();
+            if (subscription == null) {
+                Debug.LogWarning($"Subscription with receipt ${product.receipt} is not a valid subscription.");
                 return null;
             }
 
-            return product;
-        }
-
-        bool ValidSubscriptionFormat(string receipt) {
-            const string JsonKey = "json";
-            const string StoreKey = "Store";
-            const string PayloadKey = "Payload";
-            const string devPayloadKey = "developerPayload";
-
-            var receiptWrapper = JsonUtility.FromJson<Dictionary<string, object>>(receipt);
-            if (!receiptWrapper.ContainsKey(StoreKey) || !receiptWrapper.ContainsKey(PayloadKey)) {
-                Debug.Log("The subscription product receipt does not contain enough information");
-                return false;
-            }
-
-            var payload = (string) receiptWrapper[PayloadKey];
-            if (payload != null) {
-                var store = (string) receiptWrapper[StoreKey];
-                switch (store) {
-                    case GooglePlay.Name:
-                        var payloadWrapper = JsonUtility.FromJson<Dictionary<string, object>>(payload);
-                        if (!payloadWrapper.ContainsKey(JsonKey)) {
-                            Debug.Log(
-                                $"The product receipt does not contain enough information, the '${JsonKey}' field is missing");
-                            return false;
-                        }
-
-                        var origJsonPayloadWrapper =
-                            JsonUtility.FromJson<Dictionary<string, object>>((string) payloadWrapper[JsonKey]);
-                        if (origJsonPayloadWrapper == null || !origJsonPayloadWrapper.ContainsKey(devPayloadKey)) {
-                            Debug.Log(
-                                $"The product receipt does not contain enough information, the '{devPayloadKey}' field is missing");
-                            return false;
-                        }
-
-                        var devPayloadJson = (string) origJsonPayloadWrapper[devPayloadKey];
-                        var devPayloadWrapper = JsonUtility.FromJson<Dictionary<string, object>>(devPayloadJson);
-                        if (devPayloadWrapper == null || !devPayloadWrapper.ContainsKey("is_free_trial") ||
-                            !devPayloadWrapper.ContainsKey("has_introductory_price_trial")) {
-                            Debug.Log(
-                                "The product receipt does not contain enough information, the product is not purchased using 1.19 or later");
-                            return false;
-                        }
-
-                        return true;
-
-                    case AppleAppStore.Name:
-                    case AmazonApps.Name:
-                    case MacAppStore.Name:
-                        return true;
-
-                    default:
-                        return false;
-                }
-            }
-
-            return false;
+            return subscription;
         }
 
         //*******************************************************************
@@ -275,6 +212,7 @@ namespace FantamIAP {
 #endif
         }
         
+#if IOS
         PurchaseProcessingResult ProcessIosPurchase(PurchaseEventArgs e) {
             // receipt validation tangle data not available.
             if (appleTangleData == null) {
@@ -308,7 +246,9 @@ namespace FantamIAP {
 
             return PurchaseProcessingResult.Complete;
         }
-        
+#endif
+
+#if UNITY_ANDROID
         PurchaseProcessingResult ProcessGooglePurchase(PurchaseEventArgs e) {
             // receipt validation tangle data not available.
             if (googleTangleData == null) {
@@ -343,7 +283,7 @@ namespace FantamIAP {
 
             return PurchaseProcessingResult.Complete;
         }
-
+#endif
         void IStoreListener.OnPurchaseFailed(Product p, PurchaseFailureReason reason) {
             Debug.LogWarning($"IAP purchase error: {reason}");
 
@@ -402,14 +342,51 @@ namespace FantamIAP {
         /// Restore purchases
         /// (GooglePlay is automatic after Init)
         /// </summary>
-        public void RestorePurchases() {
+        public void RestorePurchases(int timeoutMs, Action<PurchaseResponse, Product> onRestore, Action onCancel, Action onTimeout) {
             if (!IsInit) {
                 Debug.LogError("Cannot restore purchases. IAPManager not successfully initialized!");
                 return;
             }
 
             var apple = extensions.GetExtension<IAppleExtensions>();
-            apple.RestoreTransactions(result => { Debug.Log("RestorePurchases continuing: " + result); });
+            apple.RestoreTransactions(result => {
+                if (result) {
+                    Debug.Log("Trying to restore");
+                    WaitForRestorePurchases(timeoutMs, onRestore, onTimeout);
+                }
+                else {
+                    Debug.Log("Restore cancelled");
+                    onCancel();
+                }
+            });
+        }
+
+        async void WaitForRestorePurchases(int timeoutMs, Action<PurchaseResponse, Product> onRestore,
+            Action onTimeout) {
+            OnPurchased += OnPurchasedHandler;
+
+            int waitTiem = 0;
+            int waitFrame = 100;
+            bool isRestored = false;
+            while (!isRestored && !IsTimeout()) {
+                await Task.Delay(waitFrame);
+                waitTiem += waitFrame;
+            }
+
+            if (IsTimeout()) {
+                Debug.Log("Restore timeout");
+                onTimeout?.Invoke();
+            }
+
+            OnPurchased -= OnPurchasedHandler;
+
+            bool IsTimeout() => waitTiem >= timeoutMs;
+
+            void OnPurchasedHandler(PurchaseResponse resp, Product product) {
+                Debug.Log("Product(s) restored");
+                isRestored = true;
+                onRestore?.Invoke(resp, product);
+            }
         }
         
         //*******************************************************************
