@@ -138,11 +138,19 @@ namespace FantamIAP {
         public bool IsSubscriptionActive(string productId) {
             var expireDate = GetSubscriptionExpiration(productId);
             if (!expireDate.HasValue) {
+                Debug.Log($"{productId} has not expiration date");
                 return false;
             }
             
             // instance is later than now
-            return expireDate.Value.CompareTo(DateTime.Now) > 0;
+            DateTime nowUtc = DateTime.Now.ToUniversalTime();
+            bool isActive = expireDate.Value.CompareTo(nowUtc) > 0;
+            if (!isActive) {
+                Debug.Log($"{expireDate.Value} is already past {nowUtc}");
+                return false;
+            }
+
+            return true;
         }
         
         /// <summary>
@@ -151,32 +159,35 @@ namespace FantamIAP {
         /// <param name="productId">Product ID</param>
         /// <returns>Expiration date. Null if already expired</returns>
         public DateTime? GetSubscriptionExpiration(string productId) {
-            return GetPurchasedSubscription(productId)?.getExpireDate();
+            // get most recent subscription
+            return GetPurchasedSubscriptions(productId)?
+                .Select(s => s.getExpireDate())
+                .OrderBy(date => date.Ticks)
+                .FirstOrDefault();
         }
         
-        SubscriptionInfo GetPurchasedSubscription(string productId) {
-            var product = GetAvailableProducts().FirstOrDefault(p => p.definition.id == productId);
+        SubscriptionInfo[] GetPurchasedSubscriptions(string productId) {
+            var products = GetAvailableProducts().Where(p => 
+                p.definition.id == productId &&
+                p.definition.type == ProductType.Subscription &&
+                p.hasReceipt
+            ).ToArray();
 
-            if (product == null) {
-                Debug.LogWarning($"Product id: ${productId} does not exist!");
+            if (products == null || products.Length == 0) {
+                Debug.LogWarning($"Product id: {productId} does not exist, is not a subscription, or does not have receipt!");
                 return null;
             }
-            if (product.definition.type != ProductType.Subscription) {
-                Debug.LogWarning($"{productId} is not a subscription!");
-                return null;
-            }
-            if (!product.hasReceipt) {
-                Debug.Log($"Subscription {productId} is not purchased");
-                return null;
-            }
+
+            var subscriptions = products
+                .Select(p => new SubscriptionManager(p, null).getSubscriptionInfo())
+                .ToArray();
             
-            var subscription = new SubscriptionManager(product, null).getSubscriptionInfo();
-            if (subscription == null) {
-                Debug.LogWarning($"Subscription with receipt ${product.receipt} is not a valid subscription.");
+            if (subscriptions == null || subscriptions.Length == 0) {
+                Debug.LogWarning($"Subscription with product id {productId} is not a valid subscription product id.");
                 return null;
             }
 
-            return subscription;
+            return subscriptions;
         }
 
         //*******************************************************************
