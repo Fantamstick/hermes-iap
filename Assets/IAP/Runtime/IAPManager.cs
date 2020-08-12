@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Purchasing;
@@ -38,6 +39,11 @@ namespace FantamIAP {
         /// Purchase request was deferred to parent.
         /// </summary>
         public event Action<Product> OnPurchaseDeferred;
+        
+        /// <summary>
+        /// Callback for when restore is completed.
+        /// </summary>
+        Action<PurchaseResponse, Product> onRestored;
 #endif
         //*******************************************************************
         // INIT
@@ -217,6 +223,9 @@ namespace FantamIAP {
             // receipt validation tangle data not available.
             if (appleTangleData == null) {
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+                onRestored?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+                onRestored = null;
+                
                 return PurchaseProcessingResult.Complete;
             }
             
@@ -226,22 +235,26 @@ namespace FantamIAP {
                 AppleReceipt receipt = new AppleValidator(appleTangleData).Validate(receiptData);
 
                 foreach (AppleInAppPurchaseReceipt receipts in receipt.inAppPurchaseReceipts) {
-                    Debug.Log($"Valid receipt");
-                    Debug.Log($"Original Transaction ID: ${receipts.originalTransactionIdentifier}");
-                    Debug.Log($"Intro Price Period: ${receipts.isIntroductoryPricePeriod}");
-                    Debug.Log($"Product ID: ${receipts.productID}");
-                    Debug.Log($"Product type: ${receipts.productType}");
-                    Debug.Log($"Quantity: ${receipts.quantity}");
-                    Debug.Log($"Original Purchase Date: ${receipts.originalPurchaseDate}");
+                    //Debug.Log($"Valid receipt");
+                    //Debug.Log($"Original Transaction ID: ${receipts.originalTransactionIdentifier}");
+                    //Debug.Log($"Intro Price Period: ${receipts.isIntroductoryPricePeriod}");
+                    //Debug.Log($"Product ID: ${receipts.productID}");
+                    //Debug.Log($"Product type: ${receipts.productType}");
+                    //Debug.Log($"Quantity: ${receipts.quantity}");
+                    //Debug.Log($"Original Purchase Date: ${receipts.originalPurchaseDate}");
                     Debug.Log($"Purchase Date: ${receipts.purchaseDate}");
-                    Debug.Log($"Cancellation Date: ${receipts.cancellationDate}");
+                    //Debug.Log($"Cancellation Date: ${receipts.cancellationDate}");
                     Debug.Log($"Subsc Expiration Date: ${receipts.subscriptionExpirationDate}");
-                    Debug.Log($"Free trial: {receipts.isFreeTrial}");
+                    //Debug.Log($"Free trial: {receipts.isFreeTrial}");
                 }
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+                onRestored?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+                onRestored = null;
             } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");
                 OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
+                onRestored?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
+                onRestored = null;
             }
 
             return PurchaseProcessingResult.Complete;
@@ -348,47 +361,38 @@ namespace FantamIAP {
                 return;
             }
 
+            onRestored = onRestore;
+            
             var apple = extensions.GetExtension<IAppleExtensions>();
             apple.RestoreTransactions(result => {
-                if (result) {
-                    Debug.Log("Trying to restore");
-                    WaitForRestorePurchases(timeoutMs, onRestore, onTimeout);
-                }
-                else {
-                    Debug.Log("Restore cancelled");
-                    onCancel();
+                if (onRestored != null) {
+                    if (result) {
+                        Debug.Log("Wait for restore");
+                        WaitForRestorePurchases(timeoutMs, onTimeout);
+                    } else {
+                        Debug.Log("Restore canceled");
+                        onCancel();
+                    }
                 }
             });
         }
 
-        async void WaitForRestorePurchases(int timeoutMs, Action<PurchaseResponse, Product> onRestore,
-            Action onTimeout) {
-            OnPurchased += OnPurchasedHandler;
-
-            int waitTiem = 0;
+        async void WaitForRestorePurchases(int timeoutMs, Action onTimeout) {
+            int waitTime = 0;
             int waitFrame = 100;
-            bool isRestored = false;
-            while (!isRestored && !IsTimeout()) {
+            while (!IsTimeout() && onRestored != null) {
                 await Task.Delay(waitFrame);
-                waitTiem += waitFrame;
+                waitTime += waitFrame;
             }
 
-            if (IsTimeout()) {
+            if (IsTimeout() && onRestored != null) {
                 Debug.Log("Restore timeout");
                 onTimeout?.Invoke();
             }
 
-            OnPurchased -= OnPurchasedHandler;
-
-            bool IsTimeout() => waitTiem >= timeoutMs;
-
-            void OnPurchasedHandler(PurchaseResponse resp, Product product) {
-                Debug.Log("Product(s) restored");
-                isRestored = true;
-                onRestore?.Invoke(resp, product);
-            }
+            bool IsTimeout() => waitTime >= timeoutMs;
         }
-        
+
         //*******************************************************************
         // REFRESH
         //*******************************************************************
