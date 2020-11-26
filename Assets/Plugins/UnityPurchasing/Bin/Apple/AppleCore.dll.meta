@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 481ccfa6c50984049a3b7c1c173a6e69
+guid: 84049a50973a6e693b7c1c1481ccfa6c
 timeCreated: 1441823903
 licenseType: Pro
 PluginImporter:
@@ -78,7 +78,12 @@ PluginImporter:
         SDK: AnySDK
         ScriptingBackend: AnyScriptingBackend
     iOS:
-      enabled: 0
+      enabled: 1
+      settings:
+        CompileFlags: 
+        FrameworkDependencies: 
+    tvOS:
+      enabled: 1
       settings:
         CompileFlags: 
         FrameworkDependencies: 
