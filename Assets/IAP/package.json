@@ -1,7 +1,7 @@
 {
     "name": "com.fantamstick.iap",
     "displayName": "Fantam IAP",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "unity": "2019.4",
     "type": "library",
     "description": "Fanamstick In-App-Purchase Manager",
