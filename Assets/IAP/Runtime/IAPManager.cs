@@ -163,7 +163,7 @@ namespace FantamIAP {
             return GetPurchasedSubscriptions(productId)?
                 .Select(s => s.getExpireDate())
                 .OrderBy(date => date.Ticks)
-                .FirstOrDefault();
+                .LastOrDefault();
         }
         
         SubscriptionInfo[] GetPurchasedSubscriptions(string productId) {
