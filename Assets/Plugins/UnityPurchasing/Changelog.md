@@ -1,3 +1,29 @@
+## [2.2.5] - 2020-12-14
+
+### Fixed
+- GooglePlay - Fails to initialize when the player has made no purchases
+- GooglePlay - Missing ProcessPurchase callback at app start when the transaction is (1) purchased, (2) processed by the app with a ProcessPurchaseResult.Pending result, (3) the app is terminated, and (4) the app is restarted
+- GooglePlay - NullReferenceException from "FillPurchases" (logged internal API) when returning from background, unpredictably
+- Apple - Unity IAP 2.2.2's Apple Silicon fix not included in release; continuous integration pipeline fixed
+- `StandardPurchasingModule.appStore` returns `AppStore.MacAppStore` for Mac App Store, `AppStore.AppleAppStore` for iOS App Store, and `AppStore.WinRT` for Windows Desktop. (No change to 
+`AppStore.SamsungApps`, `AppStore.AmazonAppStore`, or `AppStore.GooglePlay`.)
+
+## [2.2.4] - 2020-12-03
+
+### Fixed
+- GooglePlay - `IStoreListener.ProcessPurchase` called more than once for any purchase which is not consumed, i.e. when `ProcessPurchaseResult.Pending` is returned, by fixing a race-condition.
+
+### Changed
+- GooglePlay - To receive `ProcessPurchase` calls after foregrounding the app, when a purchase is made outside the app (e.g. in the Play Store app), please upgrade the core package via the Package Manager to `com.unity.purchasing@2.2.1` or higher. 
+
+## [2.2.3] - 2020-12-01
+
+### Fixed
+- GooglePlay - `IStoreListener.OnInitialized` is now called after all purchases have been fetched from the store.
+- GooglePlay - `IStoreListener.OnPurchaseFailed` would not be called in projects where the purchased product's ID differed from its Store Specific ID.
+- GooglePlay - All receipts were corrupt after a purchase of a Consumable, until the next Android `Activity.onResume` lifecycle event, if the user had previously bought a Subscription.
+- GooglePlay - Fix `MissingMethodException` seen in projects using `com.unity.purchasing@2.0.3` through `2.2.0` when a user launches their game after having previously purchased a Product.
+
 ## [2.2.2] - 2020-11-20
 
 ### Fixed
