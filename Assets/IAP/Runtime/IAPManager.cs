@@ -320,43 +320,35 @@ namespace FantamIAP {
 #endif
         void IStoreListener.OnPurchaseFailed(Product p, PurchaseFailureReason reason) {
             Debug.LogWarning($"IAP purchase error: {reason}");
-
+#if IOS
+            HandleRestoreFailure(reason);
+#endif
             switch (reason) {
                 case PurchaseFailureReason.DuplicateTransaction:
                     OnPurchased?.Invoke(PurchaseResponse.DuplicateTransaction, p);
-                    onRestored?.Invoke(PurchaseResponse.DuplicateTransaction);
                     break;
                 case PurchaseFailureReason.PaymentDeclined:
                     OnPurchased?.Invoke(PurchaseResponse.PaymentDeclined, p);
-                    onRestored?.Invoke(PurchaseResponse.PaymentDeclined);
                     break;
                 case PurchaseFailureReason.ProductUnavailable:
                     OnPurchased?.Invoke(PurchaseResponse.ProductUnavailable, p);
-                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
                     break;
                 case PurchaseFailureReason.PurchasingUnavailable:
                     OnPurchased?.Invoke(PurchaseResponse.PurchasingUnavailable, p);
-                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
                     break;
                 case PurchaseFailureReason.SignatureInvalid:
                     OnPurchased?.Invoke(PurchaseResponse.SignatureInvalid, p);
-                    onRestored?.Invoke(PurchaseResponse.SignatureInvalid);
                     break;
                 case PurchaseFailureReason.UserCancelled:
                     OnPurchased?.Invoke(PurchaseResponse.UserCancelled, p);
-                    onRestored?.Invoke(PurchaseResponse.UserCancelled);
                     break;
                 case PurchaseFailureReason.ExistingPurchasePending:
                     OnPurchased?.Invoke(PurchaseResponse.ExistingPurchasePending, p);
-                    onRestored?.Invoke(PurchaseResponse.ExistingPurchasePending);
                     break;
                 case PurchaseFailureReason.Unknown:
                     OnPurchased?.Invoke(PurchaseResponse.Unknown, p);
-                    onRestored?.Invoke(PurchaseResponse.Unknown);
                     break;
             }
-            
-            onRestored = null;
         }
 
         //*******************************************************************
@@ -423,6 +415,37 @@ namespace FantamIAP {
             }
 
             bool IsTimeout() => waitTime >= timeoutMs;
+        }
+
+        void HandleRestoreFailure(PurchaseFailureReason reason) {
+            switch (reason) {
+                case PurchaseFailureReason.DuplicateTransaction:
+                    onRestored?.Invoke(PurchaseResponse.DuplicateTransaction);
+                    break;
+                case PurchaseFailureReason.PaymentDeclined:
+                    onRestored?.Invoke(PurchaseResponse.PaymentDeclined);
+                    break;
+                case PurchaseFailureReason.ProductUnavailable:
+                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
+                    break;
+                case PurchaseFailureReason.PurchasingUnavailable:
+                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
+                    break;
+                case PurchaseFailureReason.SignatureInvalid:
+                    onRestored?.Invoke(PurchaseResponse.SignatureInvalid);
+                    break;
+                case PurchaseFailureReason.UserCancelled:
+                    onRestored?.Invoke(PurchaseResponse.UserCancelled);
+                    break;
+                case PurchaseFailureReason.ExistingPurchasePending:
+                    onRestored?.Invoke(PurchaseResponse.ExistingPurchasePending);
+                    break;
+                case PurchaseFailureReason.Unknown:
+                    onRestored?.Invoke(PurchaseResponse.Unknown);
+                    break;
+            }
+            
+            onRestored = null;
         }
 
         //*******************************************************************
