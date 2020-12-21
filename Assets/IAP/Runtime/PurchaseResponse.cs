@@ -13,5 +13,7 @@
         DuplicateTransaction,
         InvalidReceipt,
         Unknown,
+        NoInit,
+        Timeout,
     }
 }

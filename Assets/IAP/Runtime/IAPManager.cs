@@ -43,7 +43,7 @@ namespace FantamIAP {
         /// <summary>
         /// Callback for when restore is completed.
         /// </summary>
-        Action<PurchaseResponse, Product> onRestored;
+        Action<PurchaseResponse> onRestored;
 #endif
         //*******************************************************************
         // INIT
@@ -196,28 +196,33 @@ namespace FantamIAP {
         /// <summary>
         /// Try to Purchase a product
         /// </summary>
-        public void PurchaseProduct(string productId) {
+        public PurchaseRequest PurchaseProduct(string productId) {
             if (!IsInit) {
-                Debug.LogError("Cannot purchase product. IAPManager not successfully initialized!");
-                return;
+                Debug.LogWarning("Cannot purchase product. IAPManager not successfully initialized!");
+                return PurchaseRequest.NoInit;
             }
 
             var product = storeController.products.WithID(productId);
             if (product == null) {
                 Debug.LogWarning("Cannot purchase product. Not found!");
-                return;
+                return PurchaseRequest.ProductUnavailable;
             }
 
             if (!product.availableToPurchase) {
                 Debug.LogWarning("Cannot purchase product. Not available for purchase!");
-                return;
+                return PurchaseRequest.PurchasingUnavailable;
             }
 
             // try to purchase product.
             storeController.InitiatePurchase(product);
+
+            return PurchaseRequest.Ok;
         }
 
         PurchaseProcessingResult IStoreListener.ProcessPurchase(PurchaseEventArgs e) {
+#if DEBUG_IAP
+            Debug.Log("Processing a purchase");
+#endif
 #if IOS
             return ProcessIosPurchase(e);
 #elif UNITY_ANDROID
@@ -234,7 +239,7 @@ namespace FantamIAP {
             // receipt validation tangle data not available.
             if (appleTangleData == null) {
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
-                onRestored?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+                onRestored?.Invoke(PurchaseResponse.Ok);
                 onRestored = null;
                 
                 return PurchaseProcessingResult.Complete;
@@ -247,24 +252,26 @@ namespace FantamIAP {
 
                 foreach (AppleInAppPurchaseReceipt receipts in receipt.inAppPurchaseReceipts) {
                     //Debug.Log($"Valid receipt");
-                    //Debug.Log($"Original Transaction ID: ${receipts.originalTransactionIdentifier}");
-                    //Debug.Log($"Intro Price Period: ${receipts.isIntroductoryPricePeriod}");
-                    //Debug.Log($"Product ID: ${receipts.productID}");
-                    //Debug.Log($"Product type: ${receipts.productType}");
-                    //Debug.Log($"Quantity: ${receipts.quantity}");
-                    //Debug.Log($"Original Purchase Date: ${receipts.originalPurchaseDate}");
-                    Debug.Log($"Purchase Date: ${receipts.purchaseDate}");
-                    //Debug.Log($"Cancellation Date: ${receipts.cancellationDate}");
-                    Debug.Log($"Subsc Expiration Date: ${receipts.subscriptionExpirationDate}");
-                    //Debug.Log($"Free trial: {receipts.isFreeTrial}");
+                    //Debug.Log($"Original Transaction ID: {receipts.originalTransactionIdentifier}");
+                    //Debug.Log($"Intro Price Period: {receipts.isIntroductoryPricePeriod}");
+                    //Debug.Log($"Product ID: {receipts.productID}");
+                    //Debug.Log($"Product type: {receipts.productType}");
+                    //Debug.Log($"Quantity: {receipts.quantity}");
+#if DEBUG_IAP
+                    Debug.Log($"Original Purchase Date: {receipts.originalPurchaseDate}");
+                    Debug.Log($"Purchase Date: {receipts.purchaseDate}");
+                    Debug.Log($"Cancellation Date: {receipts.cancellationDate}");
+                    Debug.Log($"Subsc Expiration Date: {receipts.subscriptionExpirationDate}");
+                    Debug.Log($"Free trial: {receipts.isFreeTrial}");
+#endif
                 }
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
-                onRestored?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+                onRestored?.Invoke(PurchaseResponse.Ok);
                 onRestored = null;
             } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");
                 OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
-                onRestored?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
+                onRestored?.Invoke(PurchaseResponse.InvalidReceipt);
                 onRestored = null;
             }
 
@@ -294,11 +301,14 @@ namespace FantamIAP {
                         // This is Google's Order ID.
                         // Note that it is null when testing in the sandbox
                         // because Google's sandbox does not provide Order IDs.
+#if DEBUG_IAP
                         Debug.Log(googleReceipt.transactionID);
                         Debug.Log(googleReceipt.purchaseState);
                         Debug.Log(googleReceipt.purchaseToken);
+#endif
                     }
                 }
+                
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
             } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");
@@ -314,32 +324,39 @@ namespace FantamIAP {
             switch (reason) {
                 case PurchaseFailureReason.DuplicateTransaction:
                     OnPurchased?.Invoke(PurchaseResponse.DuplicateTransaction, p);
+                    onRestored?.Invoke(PurchaseResponse.DuplicateTransaction);
                     break;
                 case PurchaseFailureReason.PaymentDeclined:
                     OnPurchased?.Invoke(PurchaseResponse.PaymentDeclined, p);
+                    onRestored?.Invoke(PurchaseResponse.PaymentDeclined);
                     break;
                 case PurchaseFailureReason.ProductUnavailable:
                     OnPurchased?.Invoke(PurchaseResponse.ProductUnavailable, p);
+                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
                     break;
                 case PurchaseFailureReason.PurchasingUnavailable:
                     OnPurchased?.Invoke(PurchaseResponse.PurchasingUnavailable, p);
+                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
                     break;
                 case PurchaseFailureReason.SignatureInvalid:
                     OnPurchased?.Invoke(PurchaseResponse.SignatureInvalid, p);
+                    onRestored?.Invoke(PurchaseResponse.SignatureInvalid);
                     break;
                 case PurchaseFailureReason.UserCancelled:
                     OnPurchased?.Invoke(PurchaseResponse.UserCancelled, p);
+                    onRestored?.Invoke(PurchaseResponse.UserCancelled);
                     break;
                 case PurchaseFailureReason.ExistingPurchasePending:
                     OnPurchased?.Invoke(PurchaseResponse.ExistingPurchasePending, p);
+                    onRestored?.Invoke(PurchaseResponse.ExistingPurchasePending);
                     break;
                 case PurchaseFailureReason.Unknown:
                     OnPurchased?.Invoke(PurchaseResponse.Unknown, p);
-                    break;
-                default:
-                    OnPurchased?.Invoke(PurchaseResponse.Unknown, p);
+                    onRestored?.Invoke(PurchaseResponse.Unknown);
                     break;
             }
+            
+            onRestored = null;
         }
 
         //*******************************************************************
@@ -350,7 +367,7 @@ namespace FantamIAP {
         /// </summary>
         public Product[] GetAvailableProducts() {
             if (!IsInit) {
-                Debug.LogError("Cannot get products. IAPManager not successfully initialized!");
+                Debug.LogWarning("Cannot get products. IAPManager not successfully initialized!");
                 return null;
             }
 
@@ -366,29 +383,32 @@ namespace FantamIAP {
         /// Restore purchases
         /// (GooglePlay is automatic after Init)
         /// </summary>
-        public void RestorePurchases(int timeoutMs, Action<PurchaseResponse, Product> onRestore, Action onCancel, Action onTimeout) {
+        public void RestorePurchases(int timeoutMs, Action<PurchaseResponse> onDone) {
             if (!IsInit) {
-                Debug.LogError("Cannot restore purchases. IAPManager not successfully initialized!");
+                Debug.LogWarning("Cannot restore purchases. IAPManager not successfully initialized!");
+                onDone(PurchaseResponse.NoInit);
                 return;
             }
 
-            onRestored = onRestore;
+            onRestored = onDone;
             
             var apple = extensions.GetExtension<IAppleExtensions>();
             apple.RestoreTransactions(result => {
+                // still waiting for result.
                 if (onRestored != null) {
                     if (result) {
-                        Debug.Log("Wait for restore");
-                        WaitForRestorePurchases(timeoutMs, onTimeout);
+                        Debug.Log("Waiting for restore...");
+                        WaitForRestorePurchases(timeoutMs);
                     } else {
-                        Debug.Log("Restore canceled");
-                        onCancel();
+                        Debug.Log("Restore process rejected.");
+                        onDone(PurchaseResponse.Unknown);
+                        onRestored = null;
                     }
-                }
+                } 
             });
         }
 
-        async void WaitForRestorePurchases(int timeoutMs, Action onTimeout) {
+        async void WaitForRestorePurchases(int timeoutMs) {
             int waitTime = 0;
             int waitFrame = 100;
             while (!IsTimeout() && onRestored != null) {
@@ -398,7 +418,8 @@ namespace FantamIAP {
 
             if (IsTimeout() && onRestored != null) {
                 Debug.Log("Restore timeout");
-                onTimeout?.Invoke();
+                onRestored(PurchaseResponse.Timeout);
+                onRestored = null;
             }
 
             bool IsTimeout() => waitTime >= timeoutMs;
