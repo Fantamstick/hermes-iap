@@ -70,6 +70,9 @@ public class PurchaseScene : MonoBehaviour
     //========================================================
     public void OnClickRestore()
     {
+#if UNITY_ANDROID
+        UpdateText("Restore unavailable in Android");
+#else
         UpdateText("clicked restore, waiting for response...");
         IAPManager.Instance.RestorePurchases(20_000, onDone: (resp) =>
         {
@@ -77,6 +80,7 @@ public class PurchaseScene : MonoBehaviour
 
             OnClickGetExpiration();
         });
+#endif
     }
 
     //========================================================
