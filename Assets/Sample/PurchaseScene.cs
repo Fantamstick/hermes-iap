@@ -10,13 +10,21 @@ using UnityEngine.UI;
 /// </summary>
 public class PurchaseScene : MonoBehaviour
 {
-    [SerializeField] private string productId;
+    [SerializeField] string googlePlayProductId;
+    [SerializeField] string AppleProductId;
     [Space(30)]
-    [SerializeField] private Text resultText;
-    [SerializeField] private Text productIdLabel;
-    private List<string> resultList = new List<string>();
+    [SerializeField] Text resultText;
+    [SerializeField] Text productIdLabel;
+    List<string> resultList = new List<string>();
 
-    private void Start()
+    string productId =>
+#if UNITY_ANDROID
+        googlePlayProductId;
+#else
+        AppleProductId;
+#endif
+    
+    void Start()
     {
         OnClearTextClicked();
 
