@@ -31,6 +31,11 @@ namespace FantamIAP {
         byte[] googleTangleData;
         
         /// <summary>
+        /// Callback for when restore is completed.
+        /// </summary>
+        Action<PurchaseResponse> onRestored;
+        
+        /// <summary>
         /// Result of product purchase.
         /// </summary>
         public event Action<PurchaseResponse, Product> OnPurchased;
@@ -39,11 +44,6 @@ namespace FantamIAP {
         /// Purchase request was deferred to parent.
         /// </summary>
         public event Action<Product> OnPurchaseDeferred;
-        
-        /// <summary>
-        /// Callback for when restore is completed.
-        /// </summary>
-        Action<PurchaseResponse> onRestored;
 #endif
         //*******************************************************************
         // INIT
@@ -320,9 +320,8 @@ namespace FantamIAP {
 #endif
         void IStoreListener.OnPurchaseFailed(Product p, PurchaseFailureReason reason) {
             Debug.LogWarning($"IAP purchase error: {reason}");
-#if IOS
             HandleRestoreFailure(reason);
-#endif
+
             switch (reason) {
                 case PurchaseFailureReason.DuplicateTransaction:
                     OnPurchased?.Invoke(PurchaseResponse.DuplicateTransaction, p);
@@ -367,7 +366,6 @@ namespace FantamIAP {
             return storeController.products.all.Where(p => p.availableToPurchase).ToArray();
         }
 
-#if IOS
         //*******************************************************************
         // RESTORE
         //*******************************************************************
@@ -383,9 +381,13 @@ namespace FantamIAP {
             }
 
             onRestored = onDone;
-            
+#if IOS
             var apple = extensions.GetExtension<IAppleExtensions>();
             apple.RestoreTransactions(result => {
+#else
+            var googlePlay = extensions.GetExtension<IGooglePlayStoreExtensions>();
+            googlePlay.RestoreTransactions(result => {
+#endif
                 // still waiting for result.
                 if (onRestored != null) {
                     if (result) {
@@ -447,7 +449,8 @@ namespace FantamIAP {
             
             onRestored = null;
         }
-
+        
+#if IOS
         //*******************************************************************
         // REFRESH
         //*******************************************************************
