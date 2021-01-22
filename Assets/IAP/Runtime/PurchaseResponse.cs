@@ -1,4 +1,7 @@
 ﻿namespace FantamIAP {
+    /// <summary>
+    /// Purchase response.
+    /// </summary>
     public enum PurchaseResponse {
         /// <summary>
         /// Purchase OR Restore successful.

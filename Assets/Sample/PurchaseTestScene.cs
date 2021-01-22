@@ -8,7 +8,7 @@ using UnityEngine.UI;
 /// <summary>
 /// Test scene for IAP.
 /// </summary>
-public class PurchaseScene : MonoBehaviour
+public class PurchaseTestScene : MonoBehaviour
 {
     [SerializeField] string googlePlayProductId;
     [SerializeField] string AppleProductId;
@@ -36,9 +36,12 @@ public class PurchaseScene : MonoBehaviour
     //========================================================
     // INIT
     //========================================================
+    /// <summary>
+    /// Initialization button clicked.
+    /// </summary>
     public void OnClickInit()
     {
-        UpdateText("click init, waiting for response...");
+        AppendText("click init, waiting for response...");
         
         var products = new Dictionary<string, ProductType>
         {
@@ -49,39 +52,53 @@ public class PurchaseScene : MonoBehaviour
         IAPManager.Instance.Init(iapBuilder, OnInit);
     }
 
+    /// <summary>
+    /// IAP manager initialized.
+    /// </summary>
     void OnInit(InitStatus status)
     {
-        UpdateText($"IAP init status {status}");
+        AppendText($"IAP init status {status}");
     }
     
     //========================================================
     // PURCHASE
     //========================================================
+    /// <summary>
+    /// Purchase button clicked.
+    /// </summary>
     public void OnClickPurchase()
     {
-        UpdateText("click purchase, waiting for response...");
+        AppendText("click purchase, waiting for response...");
         
         var request = IAPManager.Instance.PurchaseProduct(productId);
         if (request != PurchaseRequest.Ok)
         {
-            UpdateText($"problem with purchase: {request}");
+            AppendText($"problem with purchase: {request}");
         }
     }
 
+    /// <summary>
+    /// Purchase process completed.
+    /// </summary>
+    /// <param name="resp">Response from IAP listener.</param>
+    /// <param name="product">Product data.</param>
     void OnPurchased(PurchaseResponse resp, Product product)
     {
-        UpdateText($"purchase result {resp} for Product: {product.transactionID}. {product.definition.id}");
+        AppendText($"purchase result {resp} for Product: {product.transactionID}. {product.definition.id}");
     }
     
     //========================================================
     // RESTORE
     //========================================================
+    /// <summary>
+    /// Restore button clicked.
+    /// </summary>
     public void OnClickRestore()
     {
-        UpdateText("clicked restore, waiting for response...");
+        AppendText("clicked restore, waiting for response...");
         IAPManager.Instance.RestorePurchases(20_000, onDone: (resp) =>
         {
-            UpdateText($"Restore attempt, {resp} from product");
+            AppendText($"Restore attempt, {resp} from product");
 
             OnClickGetExpiration();
         });
@@ -90,23 +107,29 @@ public class PurchaseScene : MonoBehaviour
     //========================================================
     // GET EXPIRATION
     //========================================================
+    /// <summary>
+    /// Get expiration button clicked.
+    /// </summary>
     public void OnClickGetExpiration()
     {
         var expDate = IAPManager.Instance.GetSubscriptionExpiration(productId);
         if (expDate.HasValue)
         {
-            UpdateText($"{productId} expiration date = {expDate.Value}");
+            AppendText($"{productId} expiration date = {expDate.Value}");
         }
         else
         {
-            UpdateText($"{productId} has no expiration date");
+            AppendText($"{productId} has no expiration date");
         }
     }
 
     //========================================================
     // UTILITY
     //========================================================
-    void UpdateText(string str = default)
+    /// <summary>
+    /// Append text to log.
+    /// </summary>
+    void AppendText(string str = default)
     {
         if (!string.IsNullOrEmpty(str))
         {
@@ -121,9 +144,12 @@ public class PurchaseScene : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Clear log text.
+    /// </summary>
     public void OnClearTextClicked()
     {
         resultList.Clear();
-        UpdateText();
+        AppendText();
     }
 }

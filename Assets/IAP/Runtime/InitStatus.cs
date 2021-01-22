@@ -1,4 +1,7 @@
 ﻿namespace FantamIAP {
+    /// <summary>
+    /// IAP Init status
+    /// </summary>
     public enum InitStatus {
         None,
         Ok,

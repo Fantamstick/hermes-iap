@@ -53,13 +53,13 @@ namespace FantamIAP {
         }
 
         /// <summary>
-        /// Is IAP Manager initialized.
+        /// Has IAP Manager successfully initialized.
         /// </summary>
         public bool IsInit => initStatus == InitStatus.Ok;
 
         public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone) {
             if (IsInit) {
-                onInitDone(initStatus);
+                onDone(initStatus);
                 return;
             }
 
