@@ -26,6 +26,10 @@ public class PurchaseTestScene : MonoBehaviour
     
     void Start()
     {
+#if UNITY_EDITOR
+        Debug.LogError("Test scene only works on devices!");
+#endif
+        
         OnClearTextClicked();
 
         productIdLabel.text = productId;

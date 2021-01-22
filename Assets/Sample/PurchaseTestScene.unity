@@ -366,8 +366,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a4919fd37ef0847259f5bd991342567b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  googlePlayProductId: com.fantamstick.test.iap.autorenew2
-  AppleProductId: com.fantamstick.test.iap.autorenewsub2
+  googlePlayProductId: 
+  AppleProductId: 
   resultText: {fileID: 1903028379}
   productIdLabel: {fileID: 1726726669}
 --- !u!1 &519420028
