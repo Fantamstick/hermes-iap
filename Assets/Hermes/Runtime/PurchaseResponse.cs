@@ -1,4 +1,4 @@
-﻿namespace FantamIAP {
+﻿namespace HermesIAP {
     /// <summary>
     /// Purchase response.
     /// </summary>

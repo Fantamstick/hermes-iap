@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using FantamIAP;
+using HermesIAP;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Security;
@@ -34,7 +34,7 @@ public class PurchaseTestScene : MonoBehaviour
 
         productIdLabel.text = productId;
         
-        IAPManager.Instance.OnPurchased += OnPurchased;
+        HermesIAP.HermesIAP.Instance.OnPurchased += OnPurchased;
     }
 
     //========================================================
@@ -53,7 +53,7 @@ public class PurchaseTestScene : MonoBehaviour
         };
 
         var iapBuilder = new IAPBuilder(products).WithAppleTangleData(AppleTangle.Data());
-        IAPManager.Instance.Init(iapBuilder, OnInit);
+        HermesIAP.HermesIAP.Instance.Init(iapBuilder, OnInit);
     }
 
     /// <summary>
@@ -74,7 +74,7 @@ public class PurchaseTestScene : MonoBehaviour
     {
         AppendText("click purchase, waiting for response...");
         
-        var request = IAPManager.Instance.PurchaseProduct(productId);
+        var request = HermesIAP.HermesIAP.Instance.PurchaseProduct(productId);
         if (request != PurchaseRequest.Ok)
         {
             AppendText($"problem with purchase: {request}");
@@ -100,7 +100,7 @@ public class PurchaseTestScene : MonoBehaviour
     public void OnClickRestore()
     {
         AppendText("clicked restore, waiting for response...");
-        IAPManager.Instance.RestorePurchases(20_000, onDone: (resp) =>
+        HermesIAP.HermesIAP.Instance.RestorePurchases(20_000, onDone: (resp) =>
         {
             AppendText($"Restore attempt, {resp} from product");
 
@@ -116,7 +116,7 @@ public class PurchaseTestScene : MonoBehaviour
     /// </summary>
     public void OnClickGetExpiration()
     {
-        var expDate = IAPManager.Instance.GetSubscriptionExpiration(productId);
+        var expDate = HermesIAP.HermesIAP.Instance.GetSubscriptionExpiration(productId);
         if (expDate.HasValue)
         {
             AppendText($"{productId} expiration date = {expDate.Value}");

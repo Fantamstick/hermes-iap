@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -14,12 +15,12 @@ using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
 using UnityEngine.Purchasing.Security;
 
-namespace FantamIAP {
+namespace HermesIAP {
     /// <summary>
-    /// In-App Purchase Manager.
+    /// Hermes In-App Purchase Manager.
     /// </summary>
-    public class IAPManager : IStoreListener {
-        public static IAPManager Instance { get; } = new IAPManager();
+    public class HermesIAP : IStoreListener {
+        public static HermesIAP Instance { get; } = new HermesIAP();
 #if IOS
         IAppleConfiguration appleConfig;
 #endif
@@ -48,21 +49,32 @@ namespace FantamIAP {
         //*******************************************************************
         // INIT
         //*******************************************************************
-        // Prevent class from being instanced.
-        IAPManager() {
+        // Prevent class from being instanced explicitly.
+        HermesIAP() {
         }
 
         /// <summary>
-        /// Has IAP Manager successfully initialized.
+        /// Has Hermes successfully initialized?
         /// </summary>
         public bool IsInit => initStatus == InitStatus.Ok;
 
+        /// <summary>
+        /// Initialize Hermes IAP.
+        /// </summary>
+        /// <param name="iapBuilder">Builder data used to create instance.</param>
+        /// <param name="onDone">Callback when initialization is done.</param>
         public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone) {
             if (IsInit) {
                 onDone(initStatus);
                 return;
             }
 
+            if (onInitDone != null) {
+                Debug.LogError("Hermes is already in the process of initializing.");
+                onDone(initStatus);
+                return;
+            }
+            
             appleTangleData = iapBuilder.AppleTangleData ?? null;
             googleTangleData = iapBuilder.GoogleTangleData ?? null;
             var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
@@ -98,8 +110,9 @@ namespace FantamIAP {
             });
 #endif
             Debug.Log("IAP Manager successfully initialized");
-            
+
             onInitDone(initStatus);
+            onInitDone = null;
         }
 
         /// <summary>
@@ -126,6 +139,7 @@ namespace FantamIAP {
             }
 
             onInitDone(initStatus);
+            onInitDone = null;
         }
 
         //*******************************************************************
@@ -138,7 +152,7 @@ namespace FantamIAP {
         public bool IsSubscriptionActive(string productId) {
             var expireDate = GetSubscriptionExpiration(productId);
             if (!expireDate.HasValue) {
-                Debug.Log($"{productId} has not expiration date");
+                Debug.Log($"{productId} has no expiration date.");
                 return false;
             }
             
@@ -249,22 +263,23 @@ namespace FantamIAP {
             try {
                 var receiptData = System.Convert.FromBase64String(appleConfig.appReceipt);
                 AppleReceipt receipt = new AppleValidator(appleTangleData).Validate(receiptData);
-
-                foreach (AppleInAppPurchaseReceipt receipts in receipt.inAppPurchaseReceipts) {
-                    //Debug.Log($"Valid receipt");
-                    //Debug.Log($"Original Transaction ID: {receipts.originalTransactionIdentifier}");
-                    //Debug.Log($"Intro Price Period: {receipts.isIntroductoryPricePeriod}");
-                    //Debug.Log($"Product ID: {receipts.productID}");
-                    //Debug.Log($"Product type: {receipts.productType}");
-                    //Debug.Log($"Quantity: {receipts.quantity}");
 #if DEBUG_IAP
-                    Debug.Log($"Original Purchase Date: {receipts.originalPurchaseDate}");
-                    Debug.Log($"Purchase Date: {receipts.purchaseDate}");
-                    Debug.Log($"Cancellation Date: {receipts.cancellationDate}");
-                    Debug.Log($"Subsc Expiration Date: {receipts.subscriptionExpirationDate}");
-                    Debug.Log($"Free trial: {receipts.isFreeTrial}");
-#endif
+                foreach (AppleInAppPurchaseReceipt receipts in receipt.inAppPurchaseReceipts) {
+                    var sb = new StringBuilder("Purchase Receipt Details:");
+                    sb.Append($"\n  Original Transaction ID: {receipts.originalTransactionIdentifier}");
+                    sb.Append($"\n  Intro Price Period: {receipts.isIntroductoryPricePeriod}");
+                    sb.Append($"\n  Product ID: {receipts.productID}");
+                    sb.Append($"\n  Product type: {receipts.productType}");
+                    sb.Append($"\n  Quantity: {receipts.quantity}");
+                    sb.Append($"\n  Original Transaction ID: {receipts.originalTransactionIdentifier}");
+                    sb.Append($"\n  Original Purchase Date: {receipts.originalPurchaseDate}");
+                    sb.Append($"\n  Purchase Date: {receipts.purchaseDate}");
+                    sb.Append($"\n  Cancellation Date: {receipts.cancellationDate}");
+                    sb.Append($"\n  Subsc Expiration Date: {receipts.subscriptionExpirationDate}");
+                    sb.Append($"\n  Free trial: {receipts.isFreeTrial}");
+                    Debug.Log(sb);
                 }
+#endif
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
                 onRestored?.Invoke(PurchaseResponse.Ok);
                 onRestored = null;
@@ -293,22 +308,26 @@ namespace FantamIAP {
                 // On Google Play, result has a single product ID.
                 // On Apple stores, receipts contain multiple products.
                 var result = validator.Validate(e.purchasedProduct.receipt);
+#if DEBUG_IAP
                 // For informational purposes, we list the receipt(s)
                 foreach (IPurchaseReceipt receipt in result) {
-                    Debug.Log($"Valid receipt: {receipt.productID} {receipt.purchaseDate} {receipt.transactionID}");
+                    var sb = new StringBuilder("Purchase Receipt Details:");
+                    sb.Append($"\n  Product ID: {receipt.productID}");
+                    sb.Append($"\n  Purchase Date: {receipt.purchaseDate}");
+                    sb.Append($"\n  Transaction ID: {receipt.transactionID}");
+                    
                     var googleReceipt = receipt as GooglePlayReceipt;
                     if (googleReceipt != null) {
                         // This is Google's Order ID.
                         // Note that it is null when testing in the sandbox
                         // because Google's sandbox does not provide Order IDs.
-#if DEBUG_IAP
-                        Debug.Log(googleReceipt.transactionID);
-                        Debug.Log(googleReceipt.purchaseState);
-                        Debug.Log(googleReceipt.purchaseToken);
-#endif
+                        sb.Append($"\n  Purchase State: {googleReceipt.purchaseState}");
+                        sb.Append($"\n  Purchase Token: {googleReceipt.purchaseToken}");
                     }
+                    
+                    Debug.Log(sb);
                 }
-                
+#endif          
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
             } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");

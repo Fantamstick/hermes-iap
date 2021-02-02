@@ -1,4 +1,4 @@
-﻿namespace FantamIAP {
+﻿namespace HermesIAP {
     /// <summary>
     /// IAP Init status
     /// </summary>

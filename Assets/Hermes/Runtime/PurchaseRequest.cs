@@ -1,4 +1,4 @@
-﻿namespace FantamIAP {
+﻿namespace HermesIAP {
     /// <summary>
     /// Result of REQUESTING for a product to purchase.
     /// </summary>
