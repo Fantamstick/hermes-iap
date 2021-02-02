@@ -8,7 +8,7 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 - [x] Non-Renewing Subscriptions
 - [ ] Consumables (untested)
 - [ ] Non-Consumables  (untested)
-- [] Deferred Purchases (untested)
+- [ ] Deferred Purchases (untested)
 
 ## Requirements
 
