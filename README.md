@@ -26,3 +26,9 @@ After setting up the IAP settings on AppStoreConnect and/or GooglePlay, purchase
 ## Defines
 
 Use `DEBUG_IAP` for useful debug information logging during development.
+
+## License
+
+Copyright (c) 2021 Fantamstick, Ltd
+Released under the MIT license
+https://github.com/Fantamstick/hermes-iap/blob/master/LICENSE.md
