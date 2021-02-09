@@ -1,3 +1,4 @@
+![](https://img.shields.io/badge/version-v2.0.4-green)
 # Hermes IAP
 
 IAP manager package for Unity. Makes use of local receipt validation as specified in [Unity's  documentation](https://docs.unity3d.com/Manual/UnityIAPValidatingReceipts.html).
