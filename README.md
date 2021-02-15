@@ -20,6 +20,17 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 
 - Unity IAP  v2.2.2  (Jan 21, 2021)
 
+## Installation as UPM Package
+Add `https://github.com/Fantamstick/hermes-iap/Assets/Hermes` from the Package Manager.
+
+or locate `manifest.json` in your Unity project's `Packages` folder and add the following dependencies:
+```
+"dependencies": {
+  "com.hermes.iap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#2.0.5",
+  ...
+}
+```
+
 ## Sample
 
 After setting up the IAP settings on AppStoreConnect and/or GooglePlay, purchases can be tested using the PurchaseTestScene on devices.
