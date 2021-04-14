@@ -1,7 +1,10 @@
 {
     "name": "HermesIAP",
     "references": [
-        "GUID:60bfecf5cb232594891bc622f40d6bed"
+        "GUID:60bfecf5cb232594891bc622f40d6bed",
+        "GUID:2a8b2c511af234f8081e08c2a851c083",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:560b04d1a97f54a4e82edc0cbbb69285"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

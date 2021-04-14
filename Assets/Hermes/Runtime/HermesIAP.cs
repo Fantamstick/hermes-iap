@@ -8,8 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
@@ -49,6 +49,7 @@ namespace HermesIAP {
         //*******************************************************************
         // INIT
         //*******************************************************************
+#region INIT
         // Prevent class from being instanced explicitly.
         HermesIAP() {
         }
@@ -77,9 +78,11 @@ namespace HermesIAP {
             
             appleTangleData = iapBuilder.AppleTangleData ?? null;
             googleTangleData = iapBuilder.GoogleTangleData ?? null;
-            var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
-            var builder = ConfigurationBuilder.Instance(module);
+            
 #if IOS
+            IPurchasingModule module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
+            ConfigurationBuilder builder = ConfigurationBuilder.Instance(module);
+            
             // Verify if purchases are possible on this iOS device.
             var canMakePayments = builder.Configure<IAppleConfiguration>().canMakePayments;
             if (!canMakePayments) {
@@ -89,6 +92,10 @@ namespace HermesIAP {
 
             appleConfig = builder.Configure<IAppleConfiguration>();
 #endif
+#if UNITY_ANDROID
+            IPurchasingModule module = Google.Play.Billing.GooglePlayStoreModule.Instance();
+            ConfigurationBuilder builder = ConfigurationBuilder.Instance(module);
+#endif            
             // Add Products to store.
             foreach (var key in iapBuilder.Products.Keys) {
                 builder.AddProduct(key, iapBuilder.Products[key]);
@@ -141,10 +148,12 @@ namespace HermesIAP {
             onInitDone(initStatus);
             onInitDone = null;
         }
-
+#endregion       
         //*******************************************************************
         // SUBSCRIPTION
         //*******************************************************************
+#region SUBSCRIPTION
+#if IOS 
         /// <summary>
         /// Is specified subscription active.
         /// </summary>
@@ -166,7 +175,7 @@ namespace HermesIAP {
 
             return true;
         }
-        
+    
         /// <summary>
         /// Get subscription expiration date.
         /// </summary>
@@ -180,7 +189,7 @@ namespace HermesIAP {
                 .LastOrDefault();
         }
         
-        SubscriptionInfo[] GetPurchasedSubscriptions(string productId) {
+        public SubscriptionInfo[] GetPurchasedSubscriptions(string productId) {
             var products = GetAvailableProducts().Where(p => 
                 p.definition.id == productId &&
                 p.definition.type == ProductType.Subscription &&
@@ -203,10 +212,116 @@ namespace HermesIAP {
 
             return subscriptions;
         }
+#endif        
+        
+#if UNITY_ANDROID        
+        
+        /// <summary>
+        /// Is specified subscription active.
+        /// </summary>
+        /// <param name="productId">Product id.</param>
+        public async UniTask<bool> IsSubscriptionActive(string productId) {
+            Product[] products = await GetPurchasedSubscriptions(productId);
+            if (products == null || products.Length == 0)
+            {
+                Debug.Log($"{productId} has no purchase result.");
+                return false;
+            }
 
+            Product product = products[0];
+            if (!product.hasReceipt)
+            {
+                Debug.Log($"{productId} has no purchase receipt.");
+                return false;
+            }
+
+            return true;
+        }
+        
+        /// <summary>
+        /// Get subscription expiration date.
+        /// todo: Not compatible with Google Play Developer API. This method don't get the real expired date.
+        /// </summary>
+        /// <param name="productId">Product ID</param>
+        /// <returns>Expiration date. Null if already expired</returns>
+        public async UniTask<DateTime?> GetSubscriptionExpiration(string productId)
+        {
+            Product[] products = await GetPurchasedSubscriptions(productId);
+            if (products == null || products.Length == 0)
+            {
+                Debug.Log($"{productId} has no purchase result.");
+                // not existed receipt. return null.
+                return null;
+            }
+
+            Product product = products[0];
+            if (!product.hasReceipt)
+            {
+                Debug.Log($"{productId} has no purchase receipt.");
+                // not existed receipt. return null.
+                return null;
+            }
+            // existed receipt. return future date.
+            return DateTime.Now.AddDays(1);
+        }
+        
+        /// <summary>
+        /// Get subscription purchases. Google Play Billing Library:`BillingClient.queryPurchase()`
+        /// </summary>
+        /// <param name="productId"></param>
+        /// <returns></returns>
+        public async UniTask<Product[]> GetPurchasedSubscriptions(string productId) {
+           return await FetchSubscriptionPurchase(productId);
+        }
+
+        /// <summary>
+        /// Get subscription purchases. Google Play Billing Library:`BillingClient.queryPurchase()`
+        /// </summary>
+        /// <param name="productId"></param>
+        /// <returns></returns>
+        private UniTask<Product[]> FetchSubscriptionPurchase(string productId)
+        {
+            var utcs = new UniTaskCompletionSource<Product[]>();
+            if (!IsInit)
+            {
+                Debug.LogWarning("Cannot fetch subscription. IAPManager not successfully initialized!");
+                utcs.TrySetException(new Exception("Cannot fetch subscription. IAPManager not successfully initialized!"));
+                return utcs.Task;
+            }
+            HashSet<ProductDefinition> additionalProducts = new HashSet<ProductDefinition>()
+            {
+                new ProductDefinition(productId, productId, ProductType.Subscription)
+            };
+            Product[] result = null;
+            Debug.Log("---FetchAdditionalProducts start");
+
+            // 結果取得＝サブスクのサービス提供可能。
+            // see) https://developer.android.com/google/play/billing/subscriptions
+            // memo. Google Play Billing Libraryでは期限などは取れない。要 Google Play Developer API
+            // purchaseTokenなら、 product.receipt のjson に入っている。
+            storeController.FetchAdditionalProducts(additionalProducts, successCallback:() =>
+                {
+                    Debug.Log("---FetchAdditionalProducts success");
+                    result = storeController.products.all;
+                    utcs.TrySetResult(result);
+                },
+                (InitializationFailureReason reason) =>
+                {
+                    Debug.Log("---FetchAdditionalProducts fail");
+                    Debug.LogError(reason);
+                    utcs.TrySetResult(result);
+                });
+            return utcs.Task;
+        }
+
+#endif
+#endregion
         //*******************************************************************
         // PURCHASE
         //*******************************************************************
+
+#region PURCHASE
+
         /// <summary>
         /// Try to Purchase a product
         /// </summary>
@@ -368,6 +483,7 @@ namespace HermesIAP {
                     break;
             }
         }
+#endregion
 
         //*******************************************************************
         // PRODUCTS
@@ -404,9 +520,10 @@ namespace HermesIAP {
             var apple = extensions.GetExtension<IAppleExtensions>();
             apple.RestoreTransactions(result => {
 #else
-            var googlePlay = extensions.GetExtension<IGooglePlayStoreExtensions>();
+            var googlePlay = extensions.GetExtension<Google.Play.Billing.IGooglePlayStoreExtensions>();
             googlePlay.RestoreTransactions(result => {
 #endif
+                // todo; 何してるのか謎・・・・？
                 // still waiting for result.
                 if (onRestored != null) {
                     if (result) {
@@ -417,7 +534,7 @@ namespace HermesIAP {
                         onDone(PurchaseResponse.Unknown);
                         onRestored = null;
                     }
-                } 
+                }
             });
         }
 

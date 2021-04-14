@@ -1,8 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Text;
 using HermesIAP;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Security;
+using UnityEngine.UDP.Common.MiniJSON;
 using UnityEngine.UI;
 
 /// <summary>
@@ -51,7 +55,6 @@ public class PurchaseTestScene : MonoBehaviour
         {
             {productId, ProductType.Subscription}
         };
-
         var iapBuilder = new IAPBuilder(products).WithAppleTangleData(AppleTangle.Data());
         HermesIAP.HermesIAP.Instance.Init(iapBuilder, OnInit);
     }
@@ -88,7 +91,32 @@ public class PurchaseTestScene : MonoBehaviour
     /// <param name="product">Product data.</param>
     void OnPurchased(PurchaseResponse resp, Product product)
     {
-        AppendText($"purchase result {resp} for Product: {product.transactionID}. {product.definition.id}");
+        StringBuilder sb = new StringBuilder();
+        foreach (PropertyInfo property in product.GetType().GetProperties())
+        {
+            sb.Append(property.Name).Append("=").Append(property.GetValue(product)).Append("\n");
+        }
+
+        AppendText($"purchase result {resp} for Product: {product.transactionID}. {product.definition.id}\n");
+        AppendText(sb.ToString());
+        Debug.Log(sb);
+        
+        
+        // {"Store":"GooglePlay",
+        //     "TransactionID":"GPA.3336-8364-5771-82964",
+        //     "Payload":
+        //     "{"json":
+        //     {
+        //         "orderId":"GPA.3336-8364-5771-82964",
+        //         "packageName":"com.Fantamstick.IAPManager",
+        //         "productId":"com.fantamstick.test.iap.autorenew2",
+        //         "purchaseTime":1617890625844,
+        //         "purchaseState":0,
+        //         "purchaseToken":"hfpmnkkncdcedgddpnnkdcha.AO-J1OyJ8_d1FARnTZ7aKKiUEreDHn-v2o_c6M7vEmbObom6DF1H8B1XkidWWnMml1DZ7yJ8CE6sf7rbiTw4gVSulDn8Uda0uwQ_u8GzVpu7Ka4UXKy5lIc",
+        //         "autoRenewing":true,
+        //         "acknowledged":true
+        //     },
+        //     "signature":"SWD7UAvoYQFVXSV8FYr7RJkN5GE+Pod+R9/i0qHz+y6LYjV+puoZeTBVm2ew+n+YbT+PW9fGzekn9A74IcU4uFVpqcWdRMSlPWNJhEEe15nZsngLH8Wl5TsY6nPcBqFF3fHnUxJyMss+UwpHeiZWOEuy0UevxwNTPe1vleZZCy6Yfh6lXBsOaago3fAdPxmtVUaIKDJ4d2yg+z8915cP9FFX1DpEae2ZLnZKOXKolezddpR2MtDhK8DmrKr2PfN2gLrGOvhm5zkl5B//bniRI1CytUlz7Yit8oDLs
     }
     
     //========================================================
@@ -99,6 +127,9 @@ public class PurchaseTestScene : MonoBehaviour
     /// </summary>
     public void OnClickRestore()
     {
+// #if UNITY_ANDROID
+//         AppendText("Android not support 'RESTORE'");
+// #else
         AppendText("clicked restore, waiting for response...");
         HermesIAP.HermesIAP.Instance.RestorePurchases(20_000, onDone: (resp) =>
         {
@@ -106,6 +137,7 @@ public class PurchaseTestScene : MonoBehaviour
 
             OnClickGetExpiration();
         });
+// #endif
     }
 
     //========================================================
@@ -114,8 +146,9 @@ public class PurchaseTestScene : MonoBehaviour
     /// <summary>
     /// Get expiration button clicked.
     /// </summary>
-    public void OnClickGetExpiration()
+    public async void OnClickGetExpiration()
     {
+#if IOS
         var expDate = HermesIAP.HermesIAP.Instance.GetSubscriptionExpiration(productId);
         if (expDate.HasValue)
         {
@@ -125,8 +158,87 @@ public class PurchaseTestScene : MonoBehaviour
         {
             AppendText($"{productId} has no expiration date");
         }
+#endif
+#if UNITY_ANDROID
+        var ret = await HermesIAP.HermesIAP.Instance.IsSubscriptionActive(productId);
+        AppendText($"{productId} subscription active:{ret}");
+#endif
     }
 
+   public async void OnClickGetInfo()
+    {
+#if IOS     
+        SubscriptionInfo[] receipts = HermesIAP.HermesIAP.Instance.GetPurchasedSubscriptions(productId);
+        if (receipts == null || receipts.Length == 0)
+        {
+            AppendText($"{productId} has no info");
+        }
+        else
+        {
+            StringBuilder sb = new StringBuilder();
+            int i = 0;
+            foreach (SubscriptionInfo info in receipts)
+            {
+                // https://docs.unity3d.com/ja/2019.4/Manual/UnityIAPSubscriptionProducts.html
+                sb.Append(i).Append(":");
+                sb.Append("getProductId=").Append(info.getProductId()).Append("\n");
+                sb.Append("getPurchaseDate=").Append(info.getPurchaseDate()).Append("\n");
+                sb.Append("isSubscribed=").Append(info.isSubscribed()).Append("\n");
+                sb.Append("getExpireDate=").Append(info.getExpireDate()).Append("\n");
+                sb.Append("isExpired=").Append(info.isExpired()).Append("\n");
+                sb.Append("getCancelDate=").Append(info.getCancelDate()).Append("\n");
+                sb.Append("isCancelled=").Append(info.isCancelled()).Append("\n");
+                //sb.Append("getRemainingTime=").Append(info.getRemainingTime()).Append("\n");
+                // sb.Append("getSkuDetails=").Append(info.getSkuDetails()).Append("\n");
+                // sb.Append("getSubscriptionPeriod=").Append(info.getSubscriptionPeriod()).Append("\n");
+                // sb.Append("isIntroductoryPricePeriod=").Append(info.isIntroductoryPricePeriod()).Append("\n");
+                
+                // 次の課金更新 あり/ なし
+                sb.Append("isAutoRenewing=").Append(info.isAutoRenewing()).Append("\n");
+                // sb.Append("getSubscriptionInfoJsonString=").Append(info.getSubscriptionInfoJsonString()).Append("\n");
+                i++;
+            }
+        
+            AppendText($"{productId} has {receipts.Length} info. {sb}");
+            Debug.Log($"{productId} has {receipts.Length} info. {sb}");
+        }
+#endif
+#if UNITY_ANDROID
+        Product[] products = await HermesIAP.HermesIAP.Instance.GetPurchasedSubscriptions(productId);
+        if (products == null || products.Length == 0)
+        {
+            AppendText($"{productId} has no info");
+        }
+        else
+        {
+            StringBuilder sb = new StringBuilder();
+            int i = 0;
+            foreach (Product product in products)
+            {
+                // https://docs.unity3d.com/ja/2019.4/Manual/UnityIAPSubscriptionProducts.html
+                sb.Append(i).Append(":");
+                sb.Append("definition.id=").Append(product.definition.id).Append("\n");
+                sb.Append("transactionID=").Append(product.transactionID).Append("\n");
+                sb.Append("availableToPurchase=").Append( product.availableToPurchase).Append("\n");
+                sb.Append("metadata=").Append(product.metadata).Append("\n");
+                if (product.hasReceipt)
+                {
+                    sb.Append("receipt=").Append(product.receipt).Append("\n");
+                }
+                else
+                {
+                    sb.Append("product hasn't receipt.\n");
+                }
+
+                i++;
+            }
+    
+            AppendText($"{productId} has {products.Length} info. {sb}");
+            // Debug.Log($"{productId} has {products.Length} info. {sb}");
+        }
+#endif
+    }
+   
     //========================================================
     // UTILITY
     //========================================================
