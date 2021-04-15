@@ -124,7 +124,7 @@ PlayerSettings:
     16:10: 1
     16:9: 1
     Others: 1
-  bundleVersion: 2.0.5
+  bundleVersion: 2.1.0
   preloadedAssets: []
   metroInputSource: 0
   wsaTransparentSwapchain: 0
@@ -173,7 +173,7 @@ PlayerSettings:
     iPhone: com.fantamstick.test.iap
   buildNumber:
     iPhone: 1
-  AndroidBundleVersionCode: 9
+  AndroidBundleVersionCode: 10
   AndroidMinSdkVersion: 19
   AndroidTargetSdkVersion: 0
   AndroidPreferredInstallLocation: 1
@@ -251,7 +251,7 @@ PlayerSettings:
   AndroidTargetArchitectures: 3
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
-  AndroidKeystoreName: /Users/yumiisozaki/dev/psg/ja_pirate_etc/iap-googleplay.keystore
+  AndroidKeystoreName: /Users/yumiisozaki/dev/psg/hermes-etc/iap-googleplay.keystore
   AndroidKeyaliasName: iap
   AndroidBuildApkPerCpuArchitecture: 0
   AndroidTVCompatibility: 0
