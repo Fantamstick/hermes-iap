@@ -49,7 +49,6 @@ namespace HermesIAP {
         //*******************************************************************
         // INIT
         //*******************************************************************
-#region INIT
         // Prevent class from being instanced explicitly.
         HermesIAP() {
         }
@@ -148,11 +147,10 @@ namespace HermesIAP {
             onInitDone(initStatus);
             onInitDone = null;
         }
-#endregion       
+    
         //*******************************************************************
         // SUBSCRIPTION
         //*******************************************************************
-#region SUBSCRIPTION
 #if IOS 
         /// <summary>
         /// Is specified subscription active.
@@ -266,7 +264,7 @@ namespace HermesIAP {
         }
         
         /// <summary>
-        /// Get subscription purchases. Google Play Billing Library:`BillingClient.queryPurchase()`
+        /// Get subscription purchases by Google Play Billing Library:`BillingClient.queryPurchase()`
         /// </summary>
         /// <param name="productId"></param>
         /// <returns></returns>
@@ -275,7 +273,7 @@ namespace HermesIAP {
         }
 
         /// <summary>
-        /// Get subscription purchases. Google Play Billing Library:`BillingClient.queryPurchase()`
+        /// Get subscription purchases by Google Play Billing Library:`BillingClient.queryPurchase()`
         /// </summary>
         /// <param name="productId"></param>
         /// <returns></returns>
@@ -315,13 +313,9 @@ namespace HermesIAP {
         }
 
 #endif
-#endregion
         //*******************************************************************
         // PURCHASE
         //*******************************************************************
-
-#region PURCHASE
-
         /// <summary>
         /// Try to Purchase a product
         /// </summary>
@@ -483,7 +477,6 @@ namespace HermesIAP {
                     break;
             }
         }
-#endregion
 
         //*******************************************************************
         // PRODUCTS
@@ -523,7 +516,6 @@ namespace HermesIAP {
             var googlePlay = extensions.GetExtension<Google.Play.Billing.IGooglePlayStoreExtensions>();
             googlePlay.RestoreTransactions(result => {
 #endif
-                // todo; 何してるのか謎・・・・？
                 // still waiting for result.
                 if (onRestored != null) {
                     if (result) {
