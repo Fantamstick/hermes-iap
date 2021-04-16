@@ -9,7 +9,8 @@ using Newtonsoft.Json;
 /// </summary>
 public class IntroductoryOffer
 {
-    public readonly float Price;
+    public readonly float RegularPrice;
+    public readonly float IntroductoryPrice;
     public readonly string LocalizedTitle;
     public readonly string LocalizedDescription;
     public readonly string LocalizedPriceString;
@@ -35,7 +36,7 @@ public class IntroductoryOffer
     {
         var dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(productJson);
         
-        this.Price = ParsePrice(dict);
+        this.IntroductoryPrice = ParsePrice(dict);
         this.NumberOfUnits = ParseNumberOfUnits(dict);
         this.NumberOfPeriods = ParseNumberOfPeriods(dict);
         this.Unit = ParseUnitType(dict);
@@ -47,7 +48,16 @@ public class IntroductoryOffer
         this.PriceLocale = dict["introductoryPriceLocale"];
     }
     
-    float ParsePrice(Dictionary<string, string> json)
+    float ParseRegularPrice(Dictionary<string, string> json)
+    {
+        string price = json["localizedPrice"];
+        
+        return string.IsNullOrEmpty(price) ? 
+            throw new InvalidOfferException() : 
+            float.Parse(price);
+    }
+    
+    float ParseIntroductoryPrice(Dictionary<string, string> json)
     {
         string price = json["introductoryPrice"];
         
