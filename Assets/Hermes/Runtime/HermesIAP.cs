@@ -166,6 +166,57 @@ namespace HermesIAP {
 
             return true;
         }
+
+        public IntroductoryOffer GetIntroductoryOfferDetails(string productId) {
+#if IOS
+            var apple = extensions.GetExtension<IAppleExtensions>();
+
+            // Determine if product exists.
+            var products = apple.GetProductDetails();
+            if (products == null || !products.ContainsKey(productId)) {
+                // No product available.
+                return null;
+            }
+
+            // Get product details.
+            IntroductoryOffer offer = null;
+            try
+            {
+                offer = new IntroductoryOffer(products[productId]);
+            }
+            catch (InvalidOfferException e)
+            {
+                // Invalid offer.
+                return null;
+            }
+            catch(Exception e)
+            {
+                // Invalid json!
+                Debug.LogWarning($"Invalid product data detected! {e.Message}");
+                return null;
+            }
+
+            var receiptData = System.Convert.FromBase64String(appleConfig.appReceipt);
+            AppleReceipt receipt = new AppleValidator(appleTangleData).Validate(receiptData);
+            if (receipt == null || receipt.inAppPurchaseReceipts == null) {
+                // no previous subscription purchased. 
+                return offer;
+            }
+
+            var prevCampaignPurchase = receipt.inAppPurchaseReceipts
+                .FirstOrDefault(r => 
+                    r.isFreeTrial != 0 || r.isIntroductoryPricePeriod != 0);
+                
+            if(prevCampaignPurchase != null) {
+                // user already used free trial or introductory offer. 
+                return null;
+            }
+            
+            return offer;
+#else
+            throw new NotImplementedException();
+#endif
+        }
         
         /// <summary>
         /// Get subscription expiration date.
