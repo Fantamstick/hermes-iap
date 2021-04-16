@@ -184,7 +184,7 @@ namespace HermesIAP {
             {
                 offer = new IntroductoryOffer(products[productId]);
             }
-            catch (InvalidOfferException e)
+            catch (InvalidOfferException _)
             {
                 // Invalid offer.
                 return null;

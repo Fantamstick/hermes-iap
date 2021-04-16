@@ -36,7 +36,8 @@ public class IntroductoryOffer
     {
         var dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(productJson);
         
-        this.IntroductoryPrice = ParsePrice(dict);
+        this.IntroductoryPrice = ParseIntroductoryPrice(dict);
+        this.RegularPrice = ParseRegularPrice(dict);
         this.NumberOfUnits = ParseNumberOfUnits(dict);
         this.NumberOfPeriods = ParseNumberOfPeriods(dict);
         this.Unit = ParseUnitType(dict);

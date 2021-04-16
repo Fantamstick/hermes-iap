@@ -135,7 +135,8 @@ public class PurchaseTestScene : MonoBehaviour
         var offerDict = HermesIAP.HermesIAP.Instance.GetIntroductoryOfferDetails(productId);
         if (offerDict != null)
         {
-            AppendText($"Price: {offerDict.Price}");
+            AppendText($"Regular Price: {offerDict.RegularPrice}");
+            AppendText($"Intro Price: {offerDict.IntroductoryPrice}");
             AppendText($"Duration: {offerDict.NumberOfUnits} {offerDict.Unit}");
             AppendText($"Periods: {offerDict.NumberOfPeriods}");
         }
