@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using HermesIAP;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Security;
-using UnityEngine.UDP.Common.MiniJSON;
 using UnityEngine.UI;
+#if UNITY_ANDROID
+using System;
+using UnityEngine.UDP.Common.MiniJSON;
+#endif
 
 /// <summary>
 /// Test scene for IAP.
@@ -100,23 +102,6 @@ public class PurchaseTestScene : MonoBehaviour
         AppendText($"purchase result {resp} for Product: {product.transactionID}. {product.definition.id}\n");
         AppendText(sb.ToString());
         Debug.Log(sb);
-        
-        
-        // {"Store":"GooglePlay",
-        //     "TransactionID":"GPA.3336-8364-5771-82964",
-        //     "Payload":
-        //     "{"json":
-        //     {
-        //         "orderId":"GPA.3336-8364-5771-82964",
-        //         "packageName":"com.Fantamstick.IAPManager",
-        //         "productId":"com.fantamstick.test.iap.autorenew2",
-        //         "purchaseTime":1617890625844,
-        //         "purchaseState":0,
-        //         "purchaseToken":"hfpmnkkncdcedgddpnnkdcha.AO-J1OyJ8_d1FARnTZ7aKKiUEreDHn-v2o_c6M7vEmbObom6DF1H8B1XkidWWnMml1DZ7yJ8CE6sf7rbiTw4gVSulDn8Uda0uwQ_u8GzVpu7Ka4UXKy5lIc",
-        //         "autoRenewing":true,
-        //         "acknowledged":true
-        //     },
-        //     "signature":"SWD7UAvoYQFVXSV8FYr7RJkN5GE+Pod+R9/i0qHz+y6LYjV+puoZeTBVm2ew+n+YbT+PW9fGzekn9A74IcU4uFVpqcWdRMSlPWNJhEEe15nZsngLH8Wl5TsY6nPcBqFF3fHnUxJyMss+UwpHeiZWOEuy0UevxwNTPe1vleZZCy6Yfh6lXBsOaago3fAdPxmtVUaIKDJ4d2yg+z8915cP9FFX1DpEae2ZLnZKOXKolezddpR2MtDhK8DmrKr2PfN2gLrGOvhm5zkl5B//bniRI1CytUlz7Yit8oDLs
     }
     
     //========================================================

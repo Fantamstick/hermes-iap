@@ -5,15 +5,19 @@
 #endif
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
+#if DEBUG_IAP
 using System.Text;
+#endif
 using System.Threading.Tasks;
-using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
 using UnityEngine.Purchasing.Security;
+#if UNITY_ANDROID
+using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+#endif
 
 namespace HermesIAP {
     /// <summary>
