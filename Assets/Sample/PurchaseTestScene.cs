@@ -128,6 +128,24 @@ public class PurchaseTestScene : MonoBehaviour
     }
 
     //========================================================
+    // GET INTRODUCTORY OFFER DETAILS
+    //========================================================
+    public void OnClickIntroOffer()
+    {
+        var offerDict = HermesIAP.HermesIAP.Instance.GetIntroductoryOfferDetails(productId);
+        if (offerDict != null)
+        {
+            AppendText($"Price: {offerDict.Price}");
+            AppendText($"Duration: {offerDict.NumberOfUnits} {offerDict.Unit}");
+            AppendText($"Periods: {offerDict.NumberOfPeriods}");
+        }
+        else
+        {
+            AppendText($"{productId} has no introductory offer available");
+        }
+    }
+    
+    //========================================================
     // UTILITY
     //========================================================
     /// <summary>
