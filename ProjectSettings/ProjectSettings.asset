@@ -775,7 +775,7 @@ PlayerSettings:
   webGLThreadsSupport: 0
   webGLWasmStreaming: 0
   scriptingDefineSymbols:
-    4: 
+    4: DEBUG_IAP
   platformArchitecture: {}
   scriptingBackend:
     Android: 1

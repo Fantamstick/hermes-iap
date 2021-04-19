@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using Newtonsoft.Json;
 
@@ -36,6 +37,15 @@ public class IntroductoryOffer
     {
         var dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(productJson);
         
+#if DEBUG_IAP
+        var sb = new StringBuilder("introductory offer json: \n");
+        foreach (var key in dict.Keys)
+        {
+            sb.Append($"{key}:{dict[key]}\n");
+        }
+        Debug.Log(sb);
+#endif
+        
         this.IntroductoryPrice = ParseIntroductoryPrice(dict);
         this.RegularPrice = ParseRegularPrice(dict);
         this.NumberOfUnits = ParseNumberOfUnits(dict);
@@ -45,7 +55,6 @@ public class IntroductoryOffer
         this.LocalizedDescription = dict["localizedDescription"];
         this.LocalizedPriceString = dict["localizedPriceString"];
         this.ISOCurrencyCode = dict["isoCurrencyCode"];
-        this.PriceLocale = dict["introductoryPriceLocale"];
         this.PriceLocale = dict["introductoryPriceLocale"];
     }
     
@@ -94,6 +103,8 @@ public class IntroductoryOffer
             (UnitType)int.Parse(unit);
     }
 
+    public bool IsFreeTrial => IntroductoryPrice == 0f;
+    
     public enum UnitType
     {
         Days = 0, 

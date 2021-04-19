@@ -132,13 +132,14 @@ public class PurchaseTestScene : MonoBehaviour
     //========================================================
     public void OnClickIntroOffer()
     {
-        var offerDict = HermesIAP.HermesIAP.Instance.GetIntroductoryOfferDetails(productId);
-        if (offerDict != null)
+        var offer = HermesIAP.HermesIAP.Instance.GetIntroductoryOfferDetails(productId);
+        if (offer != null)
         {
-            AppendText($"Regular Price: {offerDict.RegularPrice}");
-            AppendText($"Intro Price: {offerDict.IntroductoryPrice}");
-            AppendText($"Duration: {offerDict.NumberOfUnits} {offerDict.Unit}");
-            AppendText($"Periods: {offerDict.NumberOfPeriods}");
+            AppendText($"Regular Price: {offer.RegularPrice}");
+            AppendText($"Intro Price: {offer.IntroductoryPrice}");
+            AppendText($"Duration: {offer.NumberOfUnits} {offer.Unit}");
+            AppendText($"Periods: {offer.NumberOfPeriods}");
+            AppendText($"Free Trial? {offer.IsFreeTrial}");
         }
         else
         {

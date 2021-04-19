@@ -167,10 +167,16 @@ namespace HermesIAP {
             return true;
         }
 
+        /// <summary>
+        /// Gets introductory offer details.
+        /// Includes Free Trial.
+        /// </summary>
+        /// <param name="productId">Product ID</param>
+        /// <returns>Offer details if exists.</returns>
         public IntroductoryOffer GetIntroductoryOfferDetails(string productId) {
 #if IOS
             var apple = extensions.GetExtension<IAppleExtensions>();
-
+  
             // Determine if product exists.
             var products = apple.GetProductDetails();
             if (products == null || !products.ContainsKey(productId)) {
