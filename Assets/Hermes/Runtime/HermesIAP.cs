@@ -190,7 +190,7 @@ namespace HermesIAP {
             IntroductoryOffer offer = null;
             try {
                 offer = new IntroductoryOffer(products[productID]);
-            } catch (InvalidOfferException _) {
+            } catch (InvalidOfferException) {
                 // Invalid offer.
                 return null;
             } catch(Exception e) {
@@ -206,25 +206,25 @@ namespace HermesIAP {
                     // no previous subscription purchased. 
                     return offer;
                 }
+
+                if (groupProductIDs == null || groupProductIDs.Length == 0) {
+                    groupProductIDs = new string[] {productID};
+                }
+                
+                var prevCampaignPurchase = receipt.inAppPurchaseReceipts
+                    .FirstOrDefault(r => 
+                        groupProductIDs.Contains(r.productID) &&
+                        (r.isFreeTrial != 0 || r.isIntroductoryPricePeriod != 0));
+                    
+                if(prevCampaignPurchase != null) {
+                    // user already used free trial or introductory offer. 
+                    return null;
+                }   
             } catch {
                 // unable to validate receipt or unable to access.
                 return null;
             }
 
-            if (groupProductIDs == null || groupProductIDs.Length == 0) {
-                groupProductIDs = new string[] {productID};
-            }
-            
-            var prevCampaignPurchase = receipt.inAppPurchaseReceipts
-                .FirstOrDefault(r => 
-                    groupProductIDs.Contains(r.productID) &&
-                    (r.isFreeTrial != 0 || r.isIntroductoryPricePeriod != 0));
-                
-            if(prevCampaignPurchase != null) {
-                // user already used free trial or introductory offer. 
-                return null;
-            }
-            
             return offer;
 #else
             throw new NotImplementedException();
