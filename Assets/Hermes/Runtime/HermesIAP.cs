@@ -199,14 +199,18 @@ namespace HermesIAP {
                 return null;
             }
 
-            var receiptData = System.Convert.FromBase64String(appleConfig.appReceipt);
-            AppleReceipt receipt = new AppleValidator(appleTangleData).Validate(receiptData);
-            if (receipt == null || receipt.inAppPurchaseReceipts == null) {
-                // no previous subscription purchased. 
-                return offer;
+            try {
+                var receiptData = System.Convert.FromBase64String(appleConfig.appReceipt);
+                AppleReceipt receipt = new AppleValidator(appleTangleData).Validate(receiptData);
+                if (receipt == null || receipt.inAppPurchaseReceipts == null) {
+                    // no previous subscription purchased. 
+                    return offer;
+                }
+            } catch {
+                // unable to validate receipt or unable to access.
+                return null;
             }
 
-            
             if (groupProductIDs == null || groupProductIDs.Length == 0) {
                 groupProductIDs = new string[] {productID};
             }
@@ -345,6 +349,10 @@ namespace HermesIAP {
                 onRestored = null;
             } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");
+                OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
+                onRestored?.Invoke(PurchaseResponse.InvalidReceipt);
+                onRestored = null;
+            } catch {
                 OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
                 onRestored?.Invoke(PurchaseResponse.InvalidReceipt);
                 onRestored = null;
