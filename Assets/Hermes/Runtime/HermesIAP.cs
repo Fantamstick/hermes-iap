@@ -8,6 +8,7 @@ using System;
 using System.Linq;
 #if DEBUG_IAP
 using System.Text;
+using System.Reflection;
 #endif
 using System.Threading.Tasks;
 using UnityEngine;
@@ -17,6 +18,7 @@ using UnityEngine.Purchasing.Security;
 #if UNITY_ANDROID
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Google.Play.Billing.Internal;
 #endif
 
 namespace HermesIAP {
@@ -242,7 +244,7 @@ namespace HermesIAP {
         
         /// <summary>
         /// Get subscription expiration date.
-        /// todo: Not compatible with Google Play Developer API. This method don't get the real expired date.
+        /// todo: [GooglePlay] Not compatible with Google Play Developer API. This method don't get the real expired date.
         /// </summary>
         /// <param name="productId">Product ID</param>
         /// <returns>Expiration date. Null if already expired</returns>
@@ -296,15 +298,26 @@ namespace HermesIAP {
             };
             Product[] result = null;
             Debug.Log("---FetchAdditionalProducts start");
-
-            // 結果取得＝サブスクのサービス提供可能。
+            
             // see) https://developer.android.com/google/play/billing/subscriptions
             // memo. Google Play Billing Libraryでは期限などは取れない。要 Google Play Developer API
             // purchaseTokenなら、 product.receipt のjson に入っている。
             storeController.FetchAdditionalProducts(additionalProducts, successCallback:() =>
                 {
                     Debug.Log("---FetchAdditionalProducts success");
-                    result = storeController.products.all;
+                    result = storeController.products.all.Where( p => p.definition.id == productId).ToArray();
+#if DEBUG_IAP
+                    StringBuilder sb = new StringBuilder();
+                    foreach (var p in result)
+                    {
+                        sb.Append("\n\n----------------\n");
+                        foreach (PropertyInfo property in p.GetType().GetProperties())
+                        {
+                            sb.Append(property.Name).Append("=").Append(property.GetValue(p)).Append("\n");
+                        }
+                    }
+                    Debug.Log(sb);
+#endif
                     utcs.TrySetResult(result);
                 },
                 (InitializationFailureReason reason) =>
@@ -485,17 +498,24 @@ namespace HermesIAP {
         //*******************************************************************
         // PRODUCTS
         //*******************************************************************
+
         /// <summary>
         /// Get all available products.
+        /// todo: [GooglePlay] Not compatible with Google Play Developer API. This method don't get the real GooglePlay Status.
         /// </summary>
         public Product[] GetAvailableProducts() {
             if (!IsInit) {
                 Debug.LogWarning("Cannot get products. IAPManager not successfully initialized!");
                 return null;
             }
-
+#if UNITY_ANDROID
+            // 
+            // p.availableToPurchase always return True。 The receipt is null then available purchase 
+            return storeController.products.all.Where(p => !p.hasReceipt).ToArray();
+#else            
             // only return all products that are available for purchase.
             return storeController.products.all.Where(p => p.availableToPurchase).ToArray();
+#endif
         }
 
         //*******************************************************************
@@ -605,5 +625,50 @@ namespace HermesIAP {
             });
         }
 #endif
+        
+#if UNITY_ANDROID
+        /// <summary>
+        /// Get SKU information jsons from Google Play
+        /// </summary>
+        /// <returns>Dictionary key:productId / value:SKU json</returns>
+        public Dictionary<string, string> GetSKUsJson()
+        {
+            var googlePlay = extensions.GetExtension<Google.Play.Billing.GooglePlayStoreImpl>();
+            Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
+#if DEBUG_IAP         
+            foreach (var pair in skus)
+            {
+                Debug.Log("-------");
+                Debug.Log(pair.Key);
+                Debug.Log(pair.Value);
+            }
+#endif
+            return skus;
+        }
+        
+        /// <summary>
+        /// Get SKU information from Google Play
+        /// </summary>
+        /// <returns>Dictionary key:productId / value:SKU detail</returns>
+        public Dictionary<string, SkuDetails> GetSKUs()
+        {
+            var googlePlay = extensions.GetExtension<Google.Play.Billing.GooglePlayStoreImpl>();
+            Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
+            Dictionary<string, SkuDetails> skuDetails = new Dictionary<string, SkuDetails>();
+#if DEBUG_IAP
+            foreach (var pair in skus)
+            {
+                SkuDetails detail = new SkuDetails();
+                SkuDetails.FromJson(pair.Value, out detail);
+                skuDetails.Add(pair.Key, detail);
+                Debug.Log("-------");
+                Debug.Log(pair.Key);
+                Debug.Log(detail.JsonSkuDetails);
+#endif                
+            }
+            
+            return skuDetails;
+        }
+#endif        
     }
 }

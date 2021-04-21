@@ -6,10 +6,6 @@ using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Security;
 using UnityEngine.UI;
-#if UNITY_ANDROID
-using System;
-using UnityEngine.UDP.Common.MiniJSON;
-#endif
 
 /// <summary>
 /// Test scene for IAP.
@@ -18,8 +14,7 @@ public class PurchaseTestScene : MonoBehaviour
 {
     [SerializeField] string googlePlayProductId;
     [SerializeField] string AppleProductId;
-    [Space(30)]
-    [SerializeField] Text resultText;
+    [Space(30)] [SerializeField] Text resultText;
     [SerializeField] Text productIdLabel;
     List<string> resultList = new List<string>();
 
@@ -29,17 +24,17 @@ public class PurchaseTestScene : MonoBehaviour
 #else
         AppleProductId;
 #endif
-    
+
     void Start()
     {
 #if UNITY_EDITOR
         Debug.LogError("Test scene only works on devices!");
 #endif
-        
+
         OnClearTextClicked();
 
         productIdLabel.text = productId;
-        
+
         HermesIAP.HermesIAP.Instance.OnPurchased += OnPurchased;
     }
 
@@ -52,10 +47,11 @@ public class PurchaseTestScene : MonoBehaviour
     public void OnClickInit()
     {
         AppendText("click init, waiting for response...");
-        
+
         var products = new Dictionary<string, ProductType>
         {
-            {productId, ProductType.Subscription}
+            {"com.fantamstick.test.iap.autorenew2", ProductType.Subscription},
+            {"com.fantamstick.test.iap.autorenew3", ProductType.Subscription}
         };
         var iapBuilder = new IAPBuilder(products).WithAppleTangleData(AppleTangle.Data());
         HermesIAP.HermesIAP.Instance.Init(iapBuilder, OnInit);
@@ -68,7 +64,7 @@ public class PurchaseTestScene : MonoBehaviour
     {
         AppendText($"IAP init status {status}");
     }
-    
+
     //========================================================
     // PURCHASE
     //========================================================
@@ -78,7 +74,7 @@ public class PurchaseTestScene : MonoBehaviour
     public void OnClickPurchase()
     {
         AppendText("click purchase, waiting for response...");
-        
+
         var request = HermesIAP.HermesIAP.Instance.PurchaseProduct(productId);
         if (request != PurchaseRequest.Ok)
         {
@@ -103,7 +99,7 @@ public class PurchaseTestScene : MonoBehaviour
         AppendText(sb.ToString());
         Debug.Log(sb);
     }
-    
+
     //========================================================
     // RESTORE
     //========================================================
@@ -112,9 +108,9 @@ public class PurchaseTestScene : MonoBehaviour
     /// </summary>
     public void OnClickRestore()
     {
-// #if UNITY_ANDROID
-//         AppendText("Android not support 'RESTORE'");
-// #else
+#if UNITY_ANDROID
+        AppendText("Android not support 'RESTORE'");
+#else
         AppendText("clicked restore, waiting for response...");
         HermesIAP.HermesIAP.Instance.RestorePurchases(20_000, onDone: (resp) =>
         {
@@ -122,7 +118,7 @@ public class PurchaseTestScene : MonoBehaviour
 
             OnClickGetExpiration();
         });
-// #endif
+#endif
     }
 
     //========================================================
@@ -150,9 +146,10 @@ public class PurchaseTestScene : MonoBehaviour
 #endif
     }
 
-   public async void OnClickGetInfo()
+    public async void OnClickGetInfo()
     {
-#if IOS     
+        AppendText("OnClick GetInfo...");
+#if IOS
         SubscriptionInfo[] receipts = HermesIAP.HermesIAP.Instance.GetPurchasedSubscriptions(productId);
         if (receipts == null || receipts.Length == 0)
         {
@@ -190,6 +187,7 @@ public class PurchaseTestScene : MonoBehaviour
 #endif
 #if UNITY_ANDROID
         Product[] products = await HermesIAP.HermesIAP.Instance.GetPurchasedSubscriptions(productId);
+        Debug.Log("OnClick GetInfo...");
         if (products == null || products.Length == 0)
         {
             AppendText($"{productId} has no info");
@@ -197,33 +195,75 @@ public class PurchaseTestScene : MonoBehaviour
         else
         {
             StringBuilder sb = new StringBuilder();
-            int i = 0;
-            foreach (Product product in products)
+
+            for (int i = 0; i < products.Length; i++)
             {
+                var product = products[i];
                 // https://docs.unity3d.com/ja/2019.4/Manual/UnityIAPSubscriptionProducts.html
-                sb.Append(i).Append(":");
-                sb.Append("definition.id=").Append(product.definition.id).Append("\n");
-                sb.Append("transactionID=").Append(product.transactionID).Append("\n");
-                sb.Append("availableToPurchase=").Append( product.availableToPurchase).Append("\n");
-                sb.Append("metadata=").Append(product.metadata).Append("\n");
-                if (product.hasReceipt)
+                sb.Append(i).Append("----------------------------------\n");
+                if (product == null)
                 {
-                    sb.Append("receipt=").Append(product.receipt).Append("\n");
+                    sb.Append(" product is null");
                 }
                 else
                 {
-                    sb.Append("product hasn't receipt.\n");
+                    sb.Append("definition.id=").Append(product.definition.id).Append("\n");
+                    sb.Append("transactionID=").Append(product.transactionID).Append("\n");
+//                sb.Append("availableToPurchase=").Append(product.availableToPurchase).Append("\n");
+                    sb.Append("metadata=").Append(product.metadata).Append("\n");
+                    if (product.hasReceipt)
+                    {
+                        sb.Append("receipt=").Append(product.receipt).Append("\n");
+                    }
+                    else
+                    {
+                        sb.Append("product hasn't receipt.\n");
+                    }
                 }
 
-                i++;
+                sb.Append("\n\n");
             }
-    
-            AppendText($"{productId} has {products.Length} info. {sb}");
-            // Debug.Log($"{productId} has {products.Length} info. {sb}");
+            
+
+            AppendText($"{products.Length} info. {sb}");
         }
 #endif
     }
-   
+
+    public async void OnclickGetAvailableProducts()
+    {
+        AppendText("GetAvailableProducts");
+
+        Product[] products = HermesIAP.HermesIAP.Instance.GetAvailableProducts();
+        if (products.Length == 0)
+        {
+            AppendText("no products.");
+        }
+
+        foreach (Product product in products)
+        {
+            AppendText(
+                $"{product.definition.id}: availableToPurchase={product.availableToPurchase}, hasReceipt={product.hasReceipt}");
+        }
+    }
+
+    public void OnClickSKU()
+    {
+#if UNITY_ANDROID        
+        AppendText("Get SKU");
+        var skus = HermesIAP.HermesIAP.Instance.GetSKUs();
+        foreach (var pair in skus)
+        {
+            AppendText("----------------");
+            AppendText(pair.Key);
+            AppendText("--");
+            AppendText(pair.Value.JsonSkuDetails);
+        }
+#else       
+        AppendText("IOS not support 'get SKU'");
+#endif
+    }
+
     //========================================================
     // UTILITY
     //========================================================

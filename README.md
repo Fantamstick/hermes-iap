@@ -1,4 +1,4 @@
-![](https://img.shields.io/badge/version-v2.0.5-green)
+![](https://img.shields.io/badge/version-v2.1.0.beta3-green)
 # Hermes IAP
 
 IAP manager package for Unity. Makes use of local receipt validation as specified in [Unity's  documentation](https://docs.unity3d.com/Manual/UnityIAPValidatingReceipts.html).
@@ -13,6 +13,8 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 
 ### Google Play
 Subscription
+- [x] Auto-Renewable Subscriptions
+- [x] Non-Renewing Subscriptions
 - [ ] Upgrade / Downgrade
 - [ ] Google Play Developer API
 - [ ] Confirm price changes for subscriptions
@@ -39,7 +41,7 @@ Add `https://github.com/Fantamstick/hermes-iap/Assets/Hermes` from the Package M
 or locate `manifest.json` in your Unity project's `Packages` folder and add the following dependencies:
 ```
 "dependencies": {
-  "com.hermes.iap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#2.0.5",
+  "com.fantamstick.hermesiap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#2.0.5",
   ...
 }
 ```
