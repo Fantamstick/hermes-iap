@@ -224,7 +224,7 @@ namespace HermesIAP {
         /// Is specified subscription active.
         /// </summary>
         /// <param name="productId">Product id.</param>
-        public async UniTask<bool> IsSubscriptionActive(string productId) {
+        public async UniTask<bool> IsActiveSubscription(string productId) {
             Product[] products = await GetPurchasedSubscriptions(productId);
             if (products == null || products.Length == 0)
             {

@@ -141,7 +141,7 @@ public class PurchaseTestScene : MonoBehaviour
         }
 #endif
 #if UNITY_ANDROID
-        var ret = await HermesIAP.HermesIAP.Instance.IsSubscriptionActive(productId);
+        var ret = await HermesIAP.HermesIAP.Instance.IsActiveSubscription(productId);
         AppendText($"{productId} subscription active:{ret}");
 #endif
     }
