@@ -1,7 +1,7 @@
 {
     "name": "com.hermes.iap",
     "displayName": "Hermes IAP",
-    "version": "2.2.0-beta",
+    "version": "2.1.0",
     "unity": "2019.4",
     "type": "library",
     "description": "Hermes In-App-Purchase library using Unity IAP",
