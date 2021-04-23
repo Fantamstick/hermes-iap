@@ -269,6 +269,7 @@ public class PurchaseTestScene : MonoBehaviour
     //========================================================
     public void OnClickIntroOffer()
     {
+#if IOS
         var offer = HermesIAP.HermesIAP.Instance.GetIntroductoryOfferDetails(productId);
         if (offer != null)
         {
@@ -282,8 +283,11 @@ public class PurchaseTestScene : MonoBehaviour
         {
             AppendText($"{productId} has no introductory offer available");
         }
+#else
+        AppendText("Android not support 'OnClickIntroOffer'");
+#endif 
     }
-    
+   
     //========================================================
     // UTILITY
     //========================================================
