@@ -179,7 +179,71 @@ namespace HermesIAP {
 
             return true;
         }
-    
+
+        /// <summary>
+        /// Gets introductory offer details.
+        /// Includes Free Trial.
+        /// </summary>
+        /// <param name="productID">Product ID</param>
+        /// <param name="groupProductIDs">Group products that productID belongs to.
+        /// If empty or null, assume productID is in its own group.</param>
+        /// <returns>Offer details if exists.</returns>
+        public IntroductoryOffer GetIntroductoryOfferDetails(string productID, string[] groupProductIDs = null) {
+#if IOS
+            var apple = extensions.GetExtension<IAppleExtensions>();
+  
+            // Determine if product exists.
+            var products = apple.GetProductDetails();
+            if (products == null || !products.ContainsKey(productID)) {
+                // No product available.
+                return null;
+            }
+
+            // Get product details.
+            IntroductoryOffer offer = null;
+            try {
+                offer = new IntroductoryOffer(products[productID]);
+            } catch (InvalidOfferException) {
+                // Invalid offer.
+                return null;
+            } catch(Exception e) {
+                // Invalid json!
+                Debug.LogWarning($"Invalid product data detected! {e.Message}");
+                return null;
+            }
+
+            try {
+                var receiptData = System.Convert.FromBase64String(appleConfig.appReceipt);
+                AppleReceipt receipt = new AppleValidator(appleTangleData).Validate(receiptData);
+                if (receipt == null || receipt.inAppPurchaseReceipts == null) {
+                    // no previous subscription purchased. 
+                    return offer;
+                }
+
+                if (groupProductIDs == null || groupProductIDs.Length == 0) {
+                    groupProductIDs = new string[] {productID};
+                }
+                
+                var prevCampaignPurchase = receipt.inAppPurchaseReceipts
+                    .FirstOrDefault(r => 
+                        groupProductIDs.Contains(r.productID) &&
+                        (r.isFreeTrial != 0 || r.isIntroductoryPricePeriod != 0));
+                    
+                if(prevCampaignPurchase != null) {
+                    // user already used free trial or introductory offer. 
+                    return null;
+                }   
+            } catch {
+                // unable to validate receipt or unable to access.
+                return null;
+            }
+
+            return offer;
+#else
+            throw new NotImplementedException();
+#endif
+        }
+        
         /// <summary>
         /// Get subscription expiration date.
         /// </summary>
@@ -411,6 +475,10 @@ namespace HermesIAP {
                 onRestored = null;
             } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");
+                OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
+                onRestored?.Invoke(PurchaseResponse.InvalidReceipt);
+                onRestored = null;
+            } catch {
                 OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
                 onRestored?.Invoke(PurchaseResponse.InvalidReceipt);
                 onRestored = null;
