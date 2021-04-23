@@ -189,7 +189,7 @@ namespace HermesIAP {
         /// If empty or null, assume productID is in its own group.</param>
         /// <returns>Offer details if exists.</returns>
         public IntroductoryOffer GetIntroductoryOfferDetails(string productID, string[] groupProductIDs = null) {
-#if IOS
+
             var apple = extensions.GetExtension<IAppleExtensions>();
   
             // Determine if product exists.
@@ -239,9 +239,6 @@ namespace HermesIAP {
             }
 
             return offer;
-#else
-            throw new NotImplementedException();
-#endif
         }
         
         /// <summary>
