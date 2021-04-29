@@ -1,0 +1,567 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
+using Google.Play.Billing.Internal;
+using UnityEngine;
+using UnityEngine.Purchasing;
+using UnityEngine.Purchasing.Extension;
+using UnityEngine.Purchasing.Security;
+#if DEBUG_IAP
+using System.Text;
+using System.Reflection;
+#endif
+
+namespace HermesIAP
+{
+    public class GooglePlayHermesIAP : HermesIAP, IStoreListener
+    {
+        /// <summary>
+        /// Result of product purchase.
+        /// </summary>
+        public event Action<PurchaseResponse, Product> OnPurchased;
+
+        internal static GooglePlayHermesIAP CreateInstance()
+        {
+            return new GooglePlayHermesIAP();
+        }
+
+
+        //*******************************************************************
+        // INIT
+        //*******************************************************************
+        protected GooglePlayHermesIAP()
+        {
+        }
+
+        /// <summary>
+        /// Initialize Hermes IAP.
+        /// </summary>
+        /// <param name="iapBuilder">Builder data used to create instance.</param>
+        /// <param name="onDone">Callback when initialization is done.</param>
+        public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone)
+        {
+            if (IsInit)
+            {
+                onDone(initStatus);
+                return;
+            }
+
+            if (onInitDone != null)
+            {
+                Debug.LogError("Hermes is already in the process of initializing.");
+                onDone(initStatus);
+                return;
+            }
+
+            appleTangleData = iapBuilder.AppleTangleData ?? null;
+            googleTangleData = iapBuilder.GoogleTangleData ?? null;
+
+            IPurchasingModule module = Google.Play.Billing.GooglePlayStoreModule.Instance();
+            ConfigurationBuilder builder = ConfigurationBuilder.Instance(module);
+
+            // Add Products to store.
+            foreach (var key in iapBuilder.Products.Keys)
+            {
+                builder.AddProduct(key, iapBuilder.Products[key]);
+            }
+
+            onInitDone = onDone;
+            UnityPurchasing.Initialize(this, builder);
+        }
+
+
+        void IStoreListener.OnInitialized(IStoreController controller, IExtensionProvider extensions)
+        {
+            storeController = controller;
+            this.extensions = extensions;
+            initStatus = InitStatus.Ok;
+
+            Debug.Log("IAP Manager successfully initialized");
+
+            onInitDone(initStatus);
+            onInitDone = null;
+        }
+
+        /// <summary>
+        /// Initialization failed.
+        /// This is NOT called when device is offline.
+        /// Device will continuously try to init until device is online.
+        /// </summary>
+        void IStoreListener.OnInitializeFailed(InitializationFailureReason error)
+        {
+            Debug.LogWarning($"IAP init error: {error}");
+
+            switch (error)
+            {
+                case InitializationFailureReason.AppNotKnown:
+                    initStatus = InitStatus.AppNotKnown;
+                    break;
+                case InitializationFailureReason.NoProductsAvailable:
+                    initStatus = InitStatus.NoProductsAvailable;
+                    break;
+                case InitializationFailureReason.PurchasingUnavailable:
+                    initStatus = InitStatus.PurchasingUnavailable;
+                    break;
+                default:
+                    initStatus = InitStatus.PurchasingUnavailable;
+                    break;
+            }
+
+            onInitDone(initStatus);
+            onInitDone = null;
+        }
+
+        //*******************************************************************
+        // SUBSCRIPTION
+        //*******************************************************************
+
+        /// <summary>
+        /// Is specified subscription active.
+        /// </summary>
+        /// <param name="productId">Product id.</param>
+        public async UniTask<bool> IsActiveSubscription(string productId)
+        {
+            Product[] products = await GetPurchasedSubscriptions(productId);
+            if (products == null || products.Length == 0)
+            {
+                Debug.Log($"{productId} has no purchase result.");
+                return false;
+            }
+
+            Product product = products[0];
+            if (!product.hasReceipt)
+            {
+                Debug.Log($"{productId} has no purchase receipt.");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Get subscription expiration date.
+        /// todo: [GooglePlay] Not compatible with Google Play Developer API. This method don't get the real expired date.
+        /// </summary>
+        /// <param name="productId">Product ID</param>
+        /// <returns>Expiration date. Null if already expired</returns>
+        public async UniTask<DateTime?> GetSubscriptionExpiration(string productId)
+        {
+            Product[] products = await GetPurchasedSubscriptions(productId);
+            if (products == null || products.Length == 0)
+            {
+                Debug.Log($"{productId} has no purchase result.");
+                // not existed receipt. return null.
+                return null;
+            }
+
+            Product product = products[0];
+            if (!product.hasReceipt)
+            {
+                Debug.Log($"{productId} has no purchase receipt.");
+                // not existed receipt. return null.
+                return null;
+            }
+
+            // existed receipt. return future date.
+            return DateTime.Now.AddDays(1);
+        }
+
+        /// <summary>
+        /// Get subscription purchases by Google Play Billing Library:`BillingClient.queryPurchase()`
+        /// </summary>
+        /// <param name="productId"></param>
+        /// <returns></returns>
+        public async UniTask<Product[]> GetPurchasedSubscriptions(string productId)
+        {
+            return await FetchSubscriptionPurchase(productId);
+        }
+
+        /// <summary>
+        /// Get subscription purchases by Google Play Billing Library:`BillingClient.queryPurchase()`
+        /// </summary>
+        /// <param name="productId"></param>
+        /// <returns></returns>
+        private UniTask<Product[]> FetchSubscriptionPurchase(string productId)
+        {
+            var utcs = new UniTaskCompletionSource<Product[]>();
+            if (!IsInit)
+            {
+                Debug.LogWarning("Cannot fetch subscription. IAPManager not successfully initialized!");
+                utcs.TrySetException(
+                    new Exception("Cannot fetch subscription. IAPManager not successfully initialized!"));
+                return utcs.Task;
+            }
+
+            HashSet<ProductDefinition> additionalProducts = new HashSet<ProductDefinition>()
+            {
+                new ProductDefinition(productId, productId, ProductType.Subscription)
+            };
+            Product[] result = null;
+            Debug.Log("---FetchAdditionalProducts start");
+
+            // see) https://developer.android.com/google/play/billing/subscriptions
+            // memo. Google Play Billing Libraryでは期限などは取れない。要 Google Play Developer API
+            // purchaseTokenなら、 product.receipt のjson に入っている。
+            storeController.FetchAdditionalProducts(additionalProducts, successCallback: () =>
+                {
+                    Debug.Log("---FetchAdditionalProducts success");
+                    result = storeController.products.all.Where(p => p.definition.id == productId).ToArray();
+#if DEBUG_IAP
+                    StringBuilder sb = new StringBuilder();
+                    foreach (var p in result)
+                    {
+                        sb.Append("\n\n----------------\n");
+                        foreach (PropertyInfo property in p.GetType().GetProperties())
+                        {
+                            sb.Append(property.Name).Append("=").Append(property.GetValue(p)).Append("\n");
+                        }
+                    }
+
+                    Debug.Log(sb);
+#endif
+                    utcs.TrySetResult(result);
+                },
+                (InitializationFailureReason reason) =>
+                {
+                    Debug.Log("---FetchAdditionalProducts fail");
+                    Debug.LogError(reason);
+                    utcs.TrySetResult(result);
+                });
+            return utcs.Task;
+        }
+
+
+        //*******************************************************************
+        // PURCHASE
+        //*******************************************************************
+
+        public PurchaseRequest PurchaseProduct(string productId)
+        {
+            if (!IsInit)
+            {
+                Debug.LogWarning("Cannot purchase product. IAPManager not successfully initialized!");
+                return PurchaseRequest.NoInit;
+            }
+
+            var product = storeController.products.WithID(productId);
+            if (product == null)
+            {
+                Debug.LogWarning("Cannot purchase product. Not found!");
+                return PurchaseRequest.ProductUnavailable;
+            }
+
+            if (!product.availableToPurchase)
+            {
+                Debug.LogWarning("Cannot purchase product. Not available for purchase!");
+                return PurchaseRequest.PurchasingUnavailable;
+            }
+
+            // try to purchase product.
+            storeController.InitiatePurchase(product);
+            return PurchaseRequest.Ok;
+        }
+
+        PurchaseProcessingResult IStoreListener.ProcessPurchase(PurchaseEventArgs e)
+        {
+#if DEBUG_IAP
+            Debug.Log("Processing a purchase");
+#endif
+            return ProcessGooglePurchase(e);
+        }
+
+
+        PurchaseProcessingResult ProcessGooglePurchase(PurchaseEventArgs e)
+        {
+            // receipt validation tangle data not available.
+            if (googleTangleData == null)
+            {
+                OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+                return PurchaseProcessingResult.Complete;
+            }
+
+            // validate receipt.
+            try
+            {
+                var validator = new CrossPlatformValidator(googleTangleData, appleTangleData, Application.identifier);
+                // On Google Play, result has a single product ID.
+                // On Apple stores, receipts contain multiple products.
+                var result = validator.Validate(e.purchasedProduct.receipt);
+#if DEBUG_IAP
+                // For informational purposes, we list the receipt(s)
+                foreach (IPurchaseReceipt receipt in result)
+                {
+                    var sb = new StringBuilder("Purchase Receipt Details:");
+                    sb.Append($"\n  Product ID: {receipt.productID}");
+                    sb.Append($"\n  Purchase Date: {receipt.purchaseDate}");
+                    sb.Append($"\n  Transaction ID: {receipt.transactionID}");
+
+                    var googleReceipt = receipt as GooglePlayReceipt;
+                    if (googleReceipt != null)
+                    {
+                        // This is Google's Order ID.
+                        // Note that it is null when testing in the sandbox
+                        // because Google's sandbox does not provide Order IDs.
+                        sb.Append($"\n  Purchase State: {googleReceipt.purchaseState}");
+                        sb.Append($"\n  Purchase Token: {googleReceipt.purchaseToken}");
+                    }
+
+                    Debug.Log(sb);
+                }
+#endif
+                OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
+            }
+            catch (IAPSecurityException err)
+            {
+                Debug.Log($"Invalid receipt or security exception: {err.Message}");
+                OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
+            }
+
+            return PurchaseProcessingResult.Complete;
+        }
+
+        void IStoreListener.OnPurchaseFailed(Product p, PurchaseFailureReason reason)
+        {
+            Debug.LogWarning($"IAP purchase error: {reason}");
+            HandleRestoreFailure(reason);
+
+            switch (reason)
+            {
+                case PurchaseFailureReason.DuplicateTransaction:
+                    OnPurchased?.Invoke(PurchaseResponse.DuplicateTransaction, p);
+                    break;
+                case PurchaseFailureReason.PaymentDeclined:
+                    OnPurchased?.Invoke(PurchaseResponse.PaymentDeclined, p);
+                    break;
+                case PurchaseFailureReason.ProductUnavailable:
+                    OnPurchased?.Invoke(PurchaseResponse.ProductUnavailable, p);
+                    break;
+                case PurchaseFailureReason.PurchasingUnavailable:
+                    OnPurchased?.Invoke(PurchaseResponse.PurchasingUnavailable, p);
+                    break;
+                case PurchaseFailureReason.SignatureInvalid:
+                    OnPurchased?.Invoke(PurchaseResponse.SignatureInvalid, p);
+                    break;
+                case PurchaseFailureReason.UserCancelled:
+                    OnPurchased?.Invoke(PurchaseResponse.UserCancelled, p);
+                    break;
+                case PurchaseFailureReason.ExistingPurchasePending:
+                    OnPurchased?.Invoke(PurchaseResponse.ExistingPurchasePending, p);
+                    break;
+                case PurchaseFailureReason.Unknown:
+                    OnPurchased?.Invoke(PurchaseResponse.Unknown, p);
+                    break;
+            }
+        }
+
+
+        //*******************************************************************
+        // PRODUCTS
+        //*******************************************************************
+
+
+        /// <summary>
+        /// Get all available products.
+        /// todo: [GooglePlay] Not compatible with Google Play Developer API. This method don't get the real GooglePlay Status.
+        /// </summary>
+        public Product[] GetAvailableProducts()
+        {
+            if (!IsInit)
+            {
+                Debug.LogWarning("Cannot get products. IAPManager not successfully initialized!");
+                return null;
+            }
+
+            // 
+            // p.availableToPurchase always return True。 The receipt is null then available purchase 
+            return storeController.products.all.Where(p => !p.hasReceipt).ToArray();
+        }
+
+
+        //*******************************************************************
+        // RESTORE
+        //*******************************************************************
+        /// <summary>
+        /// Restore purchases
+        /// (GooglePlay is automatic after Init)
+        /// </summary>
+        public void RestorePurchases(int timeoutMs, Action<PurchaseResponse> onDone)
+        {
+            if (!IsInit)
+            {
+                Debug.LogWarning("Cannot restore purchases. IAPManager not successfully initialized!");
+                onDone(PurchaseResponse.NoInit);
+                return;
+            }
+
+            onRestored = onDone;
+
+            var googlePlay = extensions.GetExtension<Google.Play.Billing.IGooglePlayStoreExtensions>();
+            googlePlay.RestoreTransactions(result =>
+            {
+                // still waiting for result.
+                if (onRestored != null)
+                {
+                    if (result)
+                    {
+                        Debug.Log("Waiting for restore...");
+                        WaitForRestorePurchases(timeoutMs);
+                    }
+                    else
+                    {
+                        Debug.Log("Restore process rejected.");
+                        onDone(PurchaseResponse.Unknown);
+                        onRestored = null;
+                    }
+                }
+            });
+        }
+
+        async void WaitForRestorePurchases(int timeoutMs)
+        {
+            int waitTime = 0;
+            int waitFrame = 100;
+            while (!IsTimeout() && onRestored != null)
+            {
+                await Task.Delay(waitFrame);
+                waitTime += waitFrame;
+            }
+
+            if (IsTimeout() && onRestored != null)
+            {
+                Debug.Log("Restore timeout");
+                onRestored(PurchaseResponse.Timeout);
+                onRestored = null;
+            }
+
+            bool IsTimeout() => waitTime >= timeoutMs;
+        }
+
+        void HandleRestoreFailure(PurchaseFailureReason reason)
+        {
+            switch (reason)
+            {
+                case PurchaseFailureReason.DuplicateTransaction:
+                    onRestored?.Invoke(PurchaseResponse.DuplicateTransaction);
+                    break;
+                case PurchaseFailureReason.PaymentDeclined:
+                    onRestored?.Invoke(PurchaseResponse.PaymentDeclined);
+                    break;
+                case PurchaseFailureReason.ProductUnavailable:
+                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
+                    break;
+                case PurchaseFailureReason.PurchasingUnavailable:
+                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
+                    break;
+                case PurchaseFailureReason.SignatureInvalid:
+                    onRestored?.Invoke(PurchaseResponse.SignatureInvalid);
+                    break;
+                case PurchaseFailureReason.UserCancelled:
+                    onRestored?.Invoke(PurchaseResponse.UserCancelled);
+                    break;
+                case PurchaseFailureReason.ExistingPurchasePending:
+                    onRestored?.Invoke(PurchaseResponse.ExistingPurchasePending);
+                    break;
+                case PurchaseFailureReason.Unknown:
+                    onRestored?.Invoke(PurchaseResponse.Unknown);
+                    break;
+            }
+
+            onRestored = null;
+        }
+
+
+        /// <summary>
+        /// Get SKU information jsons from Google Play
+        /// </summary>
+        /// <returns>Dictionary key:productId / value:SKU json</returns>
+        public Dictionary<string, string> GetSKUsJson()
+        {
+            var googlePlay = extensions.GetExtension<Google.Play.Billing.GooglePlayStoreImpl>();
+            Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
+#if DEBUG_IAP
+            foreach (var pair in skus)
+            {
+                Debug.Log("-------");
+                Debug.Log(pair.Key);
+                Debug.Log(pair.Value);
+            }
+#endif
+            return skus;
+        }
+
+        /// <summary>
+        /// Get SKU information from Google Play
+        /// </summary>
+        /// <returns>Dictionary key:productId / value:SKU detail</returns>
+        public Dictionary<string, SkuDetails> GetSKUs()
+        {
+            var googlePlay = extensions.GetExtension<Google.Play.Billing.GooglePlayStoreImpl>();
+            Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
+            Dictionary<string, SkuDetails> skuDetails = new Dictionary<string, SkuDetails>();
+#if DEBUG_IAP
+            foreach (var pair in skus)
+            {
+                SkuDetails detail = new SkuDetails();
+                SkuDetails.FromJson(pair.Value, out detail);
+                skuDetails.Add(pair.Key, detail);
+                Debug.Log("-------");
+                Debug.Log(pair.Key);
+                Debug.Log(detail.JsonSkuDetails);
+#endif
+            }
+
+            return skuDetails;
+        }
+
+        public SkuDetails GetSKU(string productId)
+        {
+            Dictionary<string, string> skus = this.GetSKUsJson();
+            string json = skus[productId];
+            if (json == null)
+            {
+                return null;
+            }
+
+            SkuDetails detail = new SkuDetails();
+            SkuDetails.FromJson(json, out detail);
+#if DEBUG_IAP
+            Debug.Log(detail.JsonSkuDetails);
+#endif
+            return detail;
+        }
+        
+        /// <summary>
+        /// Gets introductory offer details.
+        /// Includes Free Trial.
+        /// </summary>
+        /// <param name="productID">Product ID</param>
+        /// <param name="groupProductIDs">(not use)</param>
+        /// <returns>Offer details if exists.</returns>
+        public IntroductoryOffer GetIntroductoryOfferDetails(string productID, string[] groupProductIDs = null)
+        {
+            var availableProducts = this.GetAvailableProducts();
+            if (availableProducts == null || availableProducts.Length == 0 )
+            {
+                // can't purchase
+                return null;
+            }
+
+            var p = availableProducts.Where(a => a.definition.id == productID).ToArray();
+            if (p.Length == 0)
+            {
+                // can't purchase
+                return null;
+            }
+
+            SkuDetails sku = this.GetSKU(productID);
+            if (sku == null)
+            {
+                return null;
+            }
+            
+            return new GooglePlayIntroductoryOfferFactory(sku).make();
+        }
+    }
+}

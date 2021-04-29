@@ -173,7 +173,7 @@ PlayerSettings:
     iPhone: com.fantamstick.test.iap
   buildNumber:
     iPhone: 1
-  AndroidBundleVersionCode: 10
+  AndroidBundleVersionCode: 11
   AndroidMinSdkVersion: 19
   AndroidTargetSdkVersion: 0
   AndroidPreferredInstallLocation: 1
@@ -466,10 +466,6 @@ PlayerSettings:
       m_Kind: 4
       m_SubKind: App Store
   m_BuildTargetBatching: []
-  m_BuildTargetBatching:
-  - m_BuildTarget: Android
-    m_StaticBatching: 0
-    m_DynamicBatching: 1
   m_BuildTargetGraphicsJobs:
   - m_BuildTarget: MacStandaloneSupport
     m_GraphicsJobs: 0

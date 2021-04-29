@@ -50,8 +50,7 @@ public class PurchaseTestScene : MonoBehaviour
 
         var products = new Dictionary<string, ProductType>
         {
-            {"com.fantamstick.test.iap.autorenew2", ProductType.Subscription},
-            {"com.fantamstick.test.iap.autorenew3", ProductType.Subscription}
+            {productId, ProductType.Subscription},
         };
         var iapBuilder = new IAPBuilder(products).WithAppleTangleData(AppleTangle.Data());
         HermesIAP.HermesIAP.Instance.Init(iapBuilder, OnInit);
@@ -223,7 +222,7 @@ public class PurchaseTestScene : MonoBehaviour
 
                 sb.Append("\n\n");
             }
-            
+
 
             AppendText($"{products.Length} info. {sb}");
         }
@@ -249,7 +248,7 @@ public class PurchaseTestScene : MonoBehaviour
 
     public void OnClickSKU()
     {
-#if UNITY_ANDROID        
+#if UNITY_ANDROID
         AppendText("Get SKU");
         var skus = HermesIAP.HermesIAP.Instance.GetSKUs();
         foreach (var pair in skus)
@@ -259,7 +258,7 @@ public class PurchaseTestScene : MonoBehaviour
             AppendText("--");
             AppendText(pair.Value.JsonSkuDetails);
         }
-#else       
+#else
         AppendText("IOS not support 'get SKU'");
 #endif
     }
@@ -269,25 +268,43 @@ public class PurchaseTestScene : MonoBehaviour
     //========================================================
     public void OnClickIntroOffer()
     {
-#if IOS
-        var offer = HermesIAP.HermesIAP.Instance.GetIntroductoryOfferDetails(productId);
-        if (offer != null)
+        string[] ids = new string[]
         {
-            AppendText($"Regular Price: {offer.RegularPrice}");
-            AppendText($"Intro Price: {offer.IntroductoryPrice}");
-            AppendText($"Duration: {offer.NumberOfUnits} {offer.Unit}");
-            AppendText($"Periods: {offer.NumberOfPeriods}");
-            AppendText($"Free Trial? {offer.IsFreeTrial}");
-        }
-        else
+            productId
+        };
+        foreach (var id in ids)
         {
-            AppendText($"{productId} has no introductory offer available");
+            AppendText($"--{id}");
+            var offer = HermesIAP.HermesIAP.Instance.GetIntroductoryOfferDetails(id);
+            if (offer != null)
+            {
+                
+                // AppendText($"Regular Price: {offer.RegularPrice}");
+                // AppendText($"Intro Price: {offer.IntroductoryPrice}");
+                // AppendText($"Duration: {offer.NumberOfUnits} {offer.Unit}");
+                // AppendText($"Periods: {offer.NumberOfPeriods}");
+                // AppendText($"Free Trial? {offer.IsFreeTrial}");
+                
+                AppendText($"Regular Price: {offer.RegularPrice}");
+                AppendText($"Regular Duration {offer.RegularNumberOfUnit} {offer.RegularUnit}");
+
+                AppendText($"Introductory?: {offer.IsIntroductory}");
+                AppendText($"Intro Price: {offer.IntroductoryPrice} ({offer.LocalizedIntroductoryPriceString})");
+                AppendText($"Intro Duration: {offer.IntroductoryNumberOfUnits} {offer.IntroductoryUnit}");
+                AppendText($"Intro Periods: {offer.IntroductoryNumberOfPeriods}");
+                
+                AppendText($"Free Trial? {offer.IsFreeTrial}");
+                AppendText($"Free Trial Duration {offer.FreeTrialNumberOfUnits} {offer.FreeTrialUnit}");
+                AppendText($"Free Trial Periods {offer.FreeTrialNumberOfPeriods}");
+            }
+            else
+            {
+                AppendText($"{productId} has no introductory offer available");
+            }
         }
-#else
-        AppendText("Android not support 'OnClickIntroOffer'");
-#endif 
+
     }
-   
+
     //========================================================
     // UTILITY
     //========================================================

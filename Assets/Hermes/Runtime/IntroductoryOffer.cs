@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using Newtonsoft.Json;
 
@@ -10,101 +11,151 @@ using Newtonsoft.Json;
 /// </summary>
 public class IntroductoryOffer
 {
-    public readonly float RegularPrice;
-    public readonly float IntroductoryPrice;
-    public readonly string LocalizedTitle;
-    public readonly string LocalizedDescription;
-    public readonly string LocalizedPriceString;
-    public readonly string ISOCurrencyCode;
-    public readonly string PriceLocale;
+    //*******************************************************************
+    // Common
+    //*******************************************************************
     
     /// <summary>
-    /// Number of units for each introductory period.
+    /// Product Title 
     /// </summary>
-    public readonly int NumberOfUnits;
+    public readonly string LocalizedTitle;
     
+    /// <summary>
+    /// Product Description
+    /// </summary>
+    public readonly string LocalizedDescription;
+
+    /// <summary>
+    /// Price ISO Currency Code. e.g.)JPY 通貨コード
+    /// </summary>
+    public readonly string ISOCurrencyCode;
+    
+    public readonly string OriginalJson;
+
+    //*******************************************************************
+    // Regular Setting
+    //*******************************************************************
+
+    /// <summary>
+    /// Regular Price
+    /// </summary>
+    public readonly float RegularPrice;
+    
+    /// <summary>
+    /// formatted price of the item, including its currency sign.
+    /// </summary>
+    public readonly string LocalizedRegularPriceString;
+    
+    /// <summary>
+    /// Type of unit used for calculating length of regular subscription period
+    /// </summary>
+    public readonly UnitType RegularUnit;
+    
+    /// <summary>
+    /// Number of units for each regular subscription
+    /// </summary>
+    public readonly int RegularNumberOfUnit;
+
+    //*******************************************************************
+    // Introductory setting
+    //*******************************************************************
+
+    public readonly bool IsIntroductory;
+    
+    /// <summary>
+    /// Introductory Price お試し価格
+    /// </summary>
+    public readonly float IntroductoryPrice;
+    
+    public readonly string IntroductoryPriceLocale;
+
+    /// <summary>
+    /// formatted price of the item, including its currency sign.
+    /// </summary>
+    public readonly string LocalizedIntroductoryPriceString;
+
     /// <summary>
     /// Type of unit used for calculating length of introductory period.
     /// </summary>
-    public readonly UnitType Unit;
-    
+    public readonly UnitType IntroductoryUnit;
+
     /// <summary>
     /// Number of periods that introductory period is valid.
     /// </summary>
-    public readonly int NumberOfPeriods;
+    public readonly int IntroductoryNumberOfPeriods;
 
-    public IntroductoryOffer(string productJson)
-    {
-        var dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(productJson);
-        
-#if DEBUG_IAP
-        var sb = new StringBuilder("introductory offer json: \n");
-        foreach (var key in dict.Keys)
-        {
-            sb.Append($"{key}:{dict[key]}\n");
-        }
-        Debug.Log(sb);
-#endif
-        
-        this.IntroductoryPrice = ParseIntroductoryPrice(dict);
-        this.RegularPrice = ParseRegularPrice(dict);
-        this.NumberOfUnits = ParseNumberOfUnits(dict);
-        this.NumberOfPeriods = ParseNumberOfPeriods(dict);
-        this.Unit = ParseUnitType(dict);
-        this.LocalizedTitle = dict["localizedTitle"];
-        this.LocalizedDescription = dict["localizedDescription"];
-        this.LocalizedPriceString = dict["localizedPriceString"];
-        this.ISOCurrencyCode = dict["isoCurrencyCode"];
-        this.PriceLocale = dict["introductoryPriceLocale"];
-    }
-    
-    float ParseRegularPrice(Dictionary<string, string> json)
-    {
-        string price = json["localizedPrice"];
-        
-        return string.IsNullOrEmpty(price) ? 
-            throw new InvalidOfferException() : 
-            float.Parse(price);
-    }
-    
-    float ParseIntroductoryPrice(Dictionary<string, string> json)
-    {
-        string price = json["introductoryPrice"];
-        
-        return string.IsNullOrEmpty(price) ? 
-            throw new InvalidOfferException() : 
-            float.Parse(price);
-    }
+    /// <summary>
+    /// Number of units for each introductory period.
+    /// </summary>
+    public readonly int IntroductoryNumberOfUnits;
 
-    int ParseNumberOfUnits(Dictionary<string, string> json)
-    {
-        string unitNum = json["numberOfUnits"];
-        
-        return string.IsNullOrEmpty(unitNum) ? 
-            throw new InvalidOfferException() : 
-            int.Parse(unitNum);
-    }
+    //*******************************************************************
+    // FreeTrial setting
+    //*******************************************************************
 
-    int ParseNumberOfPeriods(Dictionary<string, string> json)
-    {
-        string periodNum = json["introductoryPriceNumberOfPeriods"];
-        
-        return string.IsNullOrEmpty(periodNum) ? 
-            throw new InvalidOfferException() : 
-            int.Parse(periodNum);
-    }
-    
-    UnitType ParseUnitType(Dictionary<string, string> json)
-    {
-        string unit = json["unit"];
-        
-        return string.IsNullOrEmpty(unit) ? 
-            throw new InvalidOfferException() : 
-            (UnitType)int.Parse(unit);
-    }
+    public readonly bool IsFreeTrial;
 
-    public bool IsFreeTrial => IntroductoryPrice == 0f;
+    /// <summary>
+    /// Type of unit used for calculating length of free trial period.
+    /// </summary>
+    public readonly UnitType FreeTrialUnit;
+
+    /// <summary>
+    /// Number of units for each free trial
+    /// </summary>
+    public readonly int FreeTrialNumberOfUnits;
+
+    /// <summary>
+    /// Number of periods that free trial period is valid.
+    /// </summary>
+    public readonly int FreeTrialNumberOfPeriods;
     
+    public IntroductoryOffer(
+        string localizedTitle,
+        string localizedDescription,
+        string iSOCurrencyCode,
+        float regularPrice,
+        string localizedRegularPriceString,
+        UnitType regularUnit,
+        int regularNumberOfUnit,
+        bool isIntroductory,
+        float introductoryPrice,
+        string introductoryPriceLocale,
+        string localizedIntroductoryPriceString,
+        UnitType introductoryUnit,
+        int introductoryNumberOfPeriods,
+        int introductoryNumberOfUnits,
+        bool isFreeTrial,
+        UnitType freeTrialUnit,
+        int freeTrialNumberOfPeriods,
+        int freeTrialNumberOfUnits,
+        string originalJson
+    )
+    {
+        this.LocalizedTitle = localizedTitle;
+        this.LocalizedDescription = localizedDescription;
+        this.ISOCurrencyCode = iSOCurrencyCode;
+        this.OriginalJson = originalJson;
+        
+        this.RegularPrice = regularPrice;
+        this.LocalizedRegularPriceString = localizedRegularPriceString;
+        this.RegularUnit = regularUnit;
+        this.RegularNumberOfUnit = regularNumberOfUnit;
+        
+        this.IsIntroductory = isIntroductory;
+        this.IntroductoryPrice = introductoryPrice;
+        this.IntroductoryPriceLocale = introductoryPriceLocale;
+        this.LocalizedIntroductoryPriceString = localizedIntroductoryPriceString;
+        this.IntroductoryUnit = introductoryUnit;
+        this.IntroductoryNumberOfPeriods = introductoryNumberOfPeriods;
+        this.IntroductoryNumberOfUnits = introductoryNumberOfUnits;
+        
+        this.IsFreeTrial = isFreeTrial;
+        this.FreeTrialUnit = freeTrialUnit;
+        this.FreeTrialNumberOfPeriods = freeTrialNumberOfPeriods;
+        this.FreeTrialNumberOfUnits = freeTrialNumberOfUnits;
+    }
+   
     public enum UnitType
     {
         Days = 0, 

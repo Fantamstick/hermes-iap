@@ -5,42 +5,43 @@
 #endif
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 #if DEBUG_IAP
 using System.Text;
 using System.Reflection;
 #endif
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
 using UnityEngine.Purchasing.Security;
-#if UNITY_ANDROID
-using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
-using Google.Play.Billing.Internal;
-#endif
 
 namespace HermesIAP {
     /// <summary>
     /// Hermes In-App Purchase Manager.
     /// </summary>
     public class HermesIAP : IStoreListener {
+#if UNITY_ANDROID
+        public static GooglePlayHermesIAP Instance { get; } = GooglePlayHermesIAP.CreateInstance();
+#else
         public static HermesIAP Instance { get; } = new HermesIAP();
+#endif
 #if IOS
         IAppleConfiguration appleConfig;
 #endif
-        IExtensionProvider extensions;
-        InitStatus initStatus;
-        Action<InitStatus> onInitDone;
-        IStoreController storeController;
-        byte[] appleTangleData;
-        byte[] googleTangleData;
+        protected IExtensionProvider extensions;
+        protected InitStatus initStatus;
+        protected Action<InitStatus> onInitDone;
+        protected IStoreController storeController;
+        protected byte[] appleTangleData;
+        protected byte[] googleTangleData;
         
         /// <summary>
         /// Callback for when restore is completed.
         /// </summary>
-        Action<PurchaseResponse> onRestored;
+        protected Action<PurchaseResponse> onRestored;
         
         /// <summary>
         /// Result of product purchase.
@@ -56,7 +57,7 @@ namespace HermesIAP {
         // INIT
         //*******************************************************************
         // Prevent class from being instanced explicitly.
-        HermesIAP() {
+        protected HermesIAP() {
         }
 
         /// <summary>
@@ -83,11 +84,9 @@ namespace HermesIAP {
             
             appleTangleData = iapBuilder.AppleTangleData ?? null;
             googleTangleData = iapBuilder.GoogleTangleData ?? null;
-            
+            var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
+            var builder = ConfigurationBuilder.Instance(module);
 #if IOS
-            IPurchasingModule module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
-            ConfigurationBuilder builder = ConfigurationBuilder.Instance(module);
-            
             // Verify if purchases are possible on this iOS device.
             var canMakePayments = builder.Configure<IAppleConfiguration>().canMakePayments;
             if (!canMakePayments) {
@@ -97,10 +96,6 @@ namespace HermesIAP {
 
             appleConfig = builder.Configure<IAppleConfiguration>();
 #endif
-#if UNITY_ANDROID
-            IPurchasingModule module = Google.Play.Billing.GooglePlayStoreModule.Instance();
-            ConfigurationBuilder builder = ConfigurationBuilder.Instance(module);
-#endif            
             // Add Products to store.
             foreach (var key in iapBuilder.Products.Keys) {
                 builder.AddProduct(key, iapBuilder.Products[key]);
@@ -201,8 +196,9 @@ namespace HermesIAP {
 
             // Get product details.
             IntroductoryOffer offer = null;
-            try {
-                offer = new IntroductoryOffer(products[productID]);
+            try
+            {
+                offer = new IOSIntroductoryOfferFactory(products[productID]).make();
             } catch (InvalidOfferException) {
                 // Invalid offer.
                 return null;
@@ -279,118 +275,6 @@ namespace HermesIAP {
         }
 #endif        
         
-#if UNITY_ANDROID        
-        
-        /// <summary>
-        /// Is specified subscription active.
-        /// </summary>
-        /// <param name="productId">Product id.</param>
-        public async UniTask<bool> IsActiveSubscription(string productId) {
-            Product[] products = await GetPurchasedSubscriptions(productId);
-            if (products == null || products.Length == 0)
-            {
-                Debug.Log($"{productId} has no purchase result.");
-                return false;
-            }
-
-            Product product = products[0];
-            if (!product.hasReceipt)
-            {
-                Debug.Log($"{productId} has no purchase receipt.");
-                return false;
-            }
-
-            return true;
-        }
-        
-        /// <summary>
-        /// Get subscription expiration date.
-        /// todo: [GooglePlay] Not compatible with Google Play Developer API. This method don't get the real expired date.
-        /// </summary>
-        /// <param name="productId">Product ID</param>
-        /// <returns>Expiration date. Null if already expired</returns>
-        public async UniTask<DateTime?> GetSubscriptionExpiration(string productId)
-        {
-            Product[] products = await GetPurchasedSubscriptions(productId);
-            if (products == null || products.Length == 0)
-            {
-                Debug.Log($"{productId} has no purchase result.");
-                // not existed receipt. return null.
-                return null;
-            }
-
-            Product product = products[0];
-            if (!product.hasReceipt)
-            {
-                Debug.Log($"{productId} has no purchase receipt.");
-                // not existed receipt. return null.
-                return null;
-            }
-            // existed receipt. return future date.
-            return DateTime.Now.AddDays(1);
-        }
-        
-        /// <summary>
-        /// Get subscription purchases by Google Play Billing Library:`BillingClient.queryPurchase()`
-        /// </summary>
-        /// <param name="productId"></param>
-        /// <returns></returns>
-        public async UniTask<Product[]> GetPurchasedSubscriptions(string productId) {
-           return await FetchSubscriptionPurchase(productId);
-        }
-
-        /// <summary>
-        /// Get subscription purchases by Google Play Billing Library:`BillingClient.queryPurchase()`
-        /// </summary>
-        /// <param name="productId"></param>
-        /// <returns></returns>
-        private UniTask<Product[]> FetchSubscriptionPurchase(string productId)
-        {
-            var utcs = new UniTaskCompletionSource<Product[]>();
-            if (!IsInit)
-            {
-                Debug.LogWarning("Cannot fetch subscription. IAPManager not successfully initialized!");
-                utcs.TrySetException(new Exception("Cannot fetch subscription. IAPManager not successfully initialized!"));
-                return utcs.Task;
-            }
-            HashSet<ProductDefinition> additionalProducts = new HashSet<ProductDefinition>()
-            {
-                new ProductDefinition(productId, productId, ProductType.Subscription)
-            };
-            Product[] result = null;
-            Debug.Log("---FetchAdditionalProducts start");
-            
-            // see) https://developer.android.com/google/play/billing/subscriptions
-            // memo. Google Play Billing Libraryでは期限などは取れない。要 Google Play Developer API
-            // purchaseTokenなら、 product.receipt のjson に入っている。
-            storeController.FetchAdditionalProducts(additionalProducts, successCallback:() =>
-                {
-                    Debug.Log("---FetchAdditionalProducts success");
-                    result = storeController.products.all.Where( p => p.definition.id == productId).ToArray();
-#if DEBUG_IAP
-                    StringBuilder sb = new StringBuilder();
-                    foreach (var p in result)
-                    {
-                        sb.Append("\n\n----------------\n");
-                        foreach (PropertyInfo property in p.GetType().GetProperties())
-                        {
-                            sb.Append(property.Name).Append("=").Append(property.GetValue(p)).Append("\n");
-                        }
-                    }
-                    Debug.Log(sb);
-#endif
-                    utcs.TrySetResult(result);
-                },
-                (InitializationFailureReason reason) =>
-                {
-                    Debug.Log("---FetchAdditionalProducts fail");
-                    Debug.LogError(reason);
-                    utcs.TrySetResult(result);
-                });
-            return utcs.Task;
-        }
-
-#endif
         //*******************************************************************
         // PURCHASE
         //*******************************************************************
@@ -426,8 +310,6 @@ namespace HermesIAP {
 #endif
 #if IOS
             return ProcessIosPurchase(e);
-#elif UNITY_ANDROID
-            return ProcessGooglePurchase(e);
 #else
             Debug.LogWarning("Receipt validation not available for current platform");
             OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
@@ -485,49 +367,6 @@ namespace HermesIAP {
         }
 #endif
 
-#if UNITY_ANDROID
-        PurchaseProcessingResult ProcessGooglePurchase(PurchaseEventArgs e) {
-            // receipt validation tangle data not available.
-            if (googleTangleData == null) {
-                OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
-                return PurchaseProcessingResult.Complete;
-            }
-            
-            // validate receipt.
-            try {
-                var validator = new CrossPlatformValidator(googleTangleData, appleTangleData, Application.identifier);
-                // On Google Play, result has a single product ID.
-                // On Apple stores, receipts contain multiple products.
-                var result = validator.Validate(e.purchasedProduct.receipt);
-#if DEBUG_IAP
-                // For informational purposes, we list the receipt(s)
-                foreach (IPurchaseReceipt receipt in result) {
-                    var sb = new StringBuilder("Purchase Receipt Details:");
-                    sb.Append($"\n  Product ID: {receipt.productID}");
-                    sb.Append($"\n  Purchase Date: {receipt.purchaseDate}");
-                    sb.Append($"\n  Transaction ID: {receipt.transactionID}");
-                    
-                    var googleReceipt = receipt as GooglePlayReceipt;
-                    if (googleReceipt != null) {
-                        // This is Google's Order ID.
-                        // Note that it is null when testing in the sandbox
-                        // because Google's sandbox does not provide Order IDs.
-                        sb.Append($"\n  Purchase State: {googleReceipt.purchaseState}");
-                        sb.Append($"\n  Purchase Token: {googleReceipt.purchaseToken}");
-                    }
-                    
-                    Debug.Log(sb);
-                }
-#endif          
-                OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
-            } catch (IAPSecurityException err) {
-                Debug.Log($"Invalid receipt or security exception: {err.Message}");
-                OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
-            }
-
-            return PurchaseProcessingResult.Complete;
-        }
-#endif
         void IStoreListener.OnPurchaseFailed(Product p, PurchaseFailureReason reason) {
             Debug.LogWarning($"IAP purchase error: {reason}");
             HandleRestoreFailure(reason);
@@ -566,21 +405,14 @@ namespace HermesIAP {
 
         /// <summary>
         /// Get all available products.
-        /// todo: [GooglePlay] Not compatible with Google Play Developer API. This method don't get the real GooglePlay Status.
         /// </summary>
         public Product[] GetAvailableProducts() {
             if (!IsInit) {
                 Debug.LogWarning("Cannot get products. IAPManager not successfully initialized!");
                 return null;
             }
-#if UNITY_ANDROID
-            // 
-            // p.availableToPurchase always return True。 The receipt is null then available purchase 
-            return storeController.products.all.Where(p => !p.hasReceipt).ToArray();
-#else            
             // only return all products that are available for purchase.
             return storeController.products.all.Where(p => p.availableToPurchase).ToArray();
-#endif
         }
 
         //*******************************************************************
@@ -598,13 +430,8 @@ namespace HermesIAP {
             }
 
             onRestored = onDone;
-#if IOS
             var apple = extensions.GetExtension<IAppleExtensions>();
             apple.RestoreTransactions(result => {
-#else
-            var googlePlay = extensions.GetExtension<Google.Play.Billing.IGooglePlayStoreExtensions>();
-            googlePlay.RestoreTransactions(result => {
-#endif
                 // still waiting for result.
                 if (onRestored != null) {
                     if (result) {
@@ -690,50 +517,5 @@ namespace HermesIAP {
             });
         }
 #endif
-        
-#if UNITY_ANDROID
-        /// <summary>
-        /// Get SKU information jsons from Google Play
-        /// </summary>
-        /// <returns>Dictionary key:productId / value:SKU json</returns>
-        public Dictionary<string, string> GetSKUsJson()
-        {
-            var googlePlay = extensions.GetExtension<Google.Play.Billing.GooglePlayStoreImpl>();
-            Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
-#if DEBUG_IAP         
-            foreach (var pair in skus)
-            {
-                Debug.Log("-------");
-                Debug.Log(pair.Key);
-                Debug.Log(pair.Value);
-            }
-#endif
-            return skus;
-        }
-        
-        /// <summary>
-        /// Get SKU information from Google Play
-        /// </summary>
-        /// <returns>Dictionary key:productId / value:SKU detail</returns>
-        public Dictionary<string, SkuDetails> GetSKUs()
-        {
-            var googlePlay = extensions.GetExtension<Google.Play.Billing.GooglePlayStoreImpl>();
-            Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
-            Dictionary<string, SkuDetails> skuDetails = new Dictionary<string, SkuDetails>();
-#if DEBUG_IAP
-            foreach (var pair in skus)
-            {
-                SkuDetails detail = new SkuDetails();
-                SkuDetails.FromJson(pair.Value, out detail);
-                skuDetails.Add(pair.Key, detail);
-                Debug.Log("-------");
-                Debug.Log(pair.Key);
-                Debug.Log(detail.JsonSkuDetails);
-#endif                
-            }
-            
-            return skuDetails;
-        }
-#endif        
     }
 }
