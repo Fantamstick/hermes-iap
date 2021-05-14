@@ -346,12 +346,10 @@ namespace Google.Play.Billing
                 callback.Invoke(false);
                 return;
             }
-Debug.Log("**RestoreTransactions IsGooglePlayInAppBillingServiceAvailable=true");
             var inAppPurchasesResult = _billingClient.Call<AndroidJavaObject>(Constants.QueryPurchasesMethod,
                 SkuType.InApp.ToString());
             var subsPurchasesResult = _billingClient.Call<AndroidJavaObject>(Constants.QueryPurchasesMethod,
                 SkuType.Subs.ToString());
-            Debug.Log("*** RestoreTransactions after queryPurchases ");
             if (_jniUtils.GetResponseCodeFromQueryPurchasesResult(inAppPurchasesResult) !=
                 BillingResponseCode.Ok ||
                 _jniUtils.GetResponseCodeFromQueryPurchasesResult(subsPurchasesResult) != BillingResponseCode.Ok)
@@ -363,16 +361,13 @@ Debug.Log("**RestoreTransactions IsGooglePlayInAppBillingServiceAvailable=true")
             var allPurchases = _jniUtils.ParseQueryPurchasesResult(inAppPurchasesResult)
                 .Concat(_jniUtils.ParseQueryPurchasesResult(subsPurchasesResult))
                 .ToList();
-            Debug.Log("**** RestoreTransactions ParseQueryPurchasesResult ");
             _inventory.UpdatePurchaseInventory(allPurchases);
             _billingUtil.RunOnMainThread( () =>
             {
-                Debug.Log("***** RestoreTransactions  _billingUtil.RunOnMainThread(() => callback.Invoke(true));");
                 _callback.OnProductsRetrieved(_inventory.CreateProductDescriptionList());
             });
             _billingUtil.RunOnMainThread(() =>
             {
-                Debug.Log("***** RestoreTransactions  callback.Invoke(true);");
                 callback.Invoke(true);
             });
         }
@@ -723,6 +718,7 @@ Debug.Log("**RestoreTransactions IsGooglePlayInAppBillingServiceAvailable=true")
                 case ProductType.NonConsumable:
                 case ProductType.Subscription:
                     // Skip calling acknowledgePurchase if it is already acknowledged.
+
                     if (purchase.Acknowledged)
                     {
                         return;

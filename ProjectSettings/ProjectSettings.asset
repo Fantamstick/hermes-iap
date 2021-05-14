@@ -173,7 +173,7 @@ PlayerSettings:
     iPhone: com.fantamstick.test.iap
   buildNumber:
     iPhone: 1
-  AndroidBundleVersionCode: 11
+  AndroidBundleVersionCode: 12
   AndroidMinSdkVersion: 19
   AndroidTargetSdkVersion: 0
   AndroidPreferredInstallLocation: 1
