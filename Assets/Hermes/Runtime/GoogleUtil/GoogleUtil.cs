@@ -8,6 +8,11 @@ using UnityEngine;
 
 namespace HermesIAP.GoogleUtil
 {
+    /// <summary>
+    /// BillingClient.queryPurchase() 用
+    /// logic copy from Google.Play.Billing.GooglePlayStoreImpl, Google.Play.Billing.Internal.JniUtils
+    /// # can't use internal/private scope sources....
+    /// </summary>
     public class GoogleUtil 
     {
         private AndroidJavaObject _billingClient;
