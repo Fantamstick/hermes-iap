@@ -86,7 +86,7 @@ namespace HermesIAP
         private string OriginalJson;
         
         #endregion
-        public IntroductoryOffer make()
+        public IntroductoryOffer Make()
         {
             return new IntroductoryOffer(
                 this.LocalizedTitle,

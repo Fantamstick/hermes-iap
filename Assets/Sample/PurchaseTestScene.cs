@@ -1,12 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
-using Google.Play.Billing.Internal;
 using HermesIAP;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Security;
 using UnityEngine.UI;
+#if UNITY_ANDROID
+using Google.Play.Billing.Internal;
+#endif
 
 /// <summary>
 /// Test scene for IAP.
@@ -213,7 +215,7 @@ public class PurchaseTestScene : MonoBehaviour
 #endif
     }
 
-    public async void OnclickGetAvailableProducts()
+    public async void OnClickGetAvailableProducts()
     {
         AppendText("GetAvailableProducts");
 #if UNITY_ANDROID

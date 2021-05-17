@@ -568,7 +568,7 @@ namespace HermesIAP
                 return null;
             }
             
-            return new GooglePlayIntroductoryOfferFactory(sku).make();
+            return new GooglePlayIntroductoryOfferFactory(sku).Make();
         }
 
         /// <summary>

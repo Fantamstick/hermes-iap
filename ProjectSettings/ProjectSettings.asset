@@ -251,7 +251,7 @@ PlayerSettings:
   AndroidTargetArchitectures: 3
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
-  AndroidKeystoreName: /Users/yumiisozaki/dev/psg/hermes-etc/iap-googleplay.keystore
+  AndroidKeystoreName: '{inproject}: googleplay.keystore'
   AndroidKeyaliasName: iap
   AndroidBuildApkPerCpuArchitecture: 0
   AndroidTVCompatibility: 0

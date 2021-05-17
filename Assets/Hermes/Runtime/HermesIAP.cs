@@ -198,7 +198,7 @@ namespace HermesIAP {
             IntroductoryOffer offer = null;
             try
             {
-                offer = new IOSIntroductoryOfferFactory(products[productID]).make();
+                offer = new IOSIntroductoryOfferFactory(products[productID]).Make();
             } catch (InvalidOfferException) {
                 // Invalid offer.
                 return null;

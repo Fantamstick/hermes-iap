@@ -1,7 +1,5 @@
 #if UNITY_ANDROID
-using System;
 using System.Text.RegularExpressions;
-using System.Xml;
 using Google.Play.Billing.Internal;
 using UnityEngine;
 
@@ -18,11 +16,11 @@ namespace HermesIAP
 #endif
 
             // Subscription period, specified in ISO 8601 format.
-            Period regularPeriod = getPeriod(sku.subscriptionPeriod);
+            Period regularPeriod = GetPeriod(sku.subscriptionPeriod);
             // The billing period of the introductory price, specified in ISO 8601 format.
-            Period introductoryPeriod = getPeriod(sku.introductoryPricePeriod);
+            Period introductoryPeriod = GetPeriod(sku.introductoryPricePeriod);
             // Trial period configured in Google Play Console, specified in ISO 8601 format.
-            Period freePeriod = getPeriod(sku.freeTrialPeriod);
+            Period freePeriod = GetPeriod(sku.freeTrialPeriod);
 
             // common
             // the title of the product.
@@ -72,9 +70,9 @@ namespace HermesIAP
             public int Days = 0;
             public int Weeks = 0;
             public int Months = 0;
-            public int Yeas = 0;
+            public int Years = 0;
 
-            private int FullDays => Days + (Weeks * 7) + (Months * 30) + (Yeas * 365);
+            private int FullDays => Days + (Weeks * 7) + (Months * 30) + (Years * 365);
 
             public int Number
             {
@@ -103,7 +101,7 @@ namespace HermesIAP
         /// </summary>f
         private static readonly Regex _regex = new Regex(@"(?<length>[0-9]+)(?<unit>[Y|M|W|D])");
         
-        private Period getPeriod(string isoValue)
+        private Period GetPeriod(string isoValue)
         {
             if (string.IsNullOrEmpty(isoValue))
             {
@@ -134,7 +132,7 @@ namespace HermesIAP
             {
                 case "Y":
                     period.Unit = IntroductoryOffer.UnitType.Years;
-                    period.Yeas = len;
+                    period.Years = len;
                     break;
                 case "M":
                     period.Unit = IntroductoryOffer.UnitType.Months;
