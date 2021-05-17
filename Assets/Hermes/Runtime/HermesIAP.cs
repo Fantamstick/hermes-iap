@@ -7,9 +7,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+#if DEBUG_IAP
 using System.Text;
-using System.Threading;
+using System.Reflection;
+#endif
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
@@ -20,21 +23,25 @@ namespace HermesIAP {
     /// Hermes In-App Purchase Manager.
     /// </summary>
     public class HermesIAP : IStoreListener {
+#if UNITY_ANDROID
+        public static GooglePlayHermesIAP Instance { get; } = GooglePlayHermesIAP.CreateInstance();
+#else
         public static HermesIAP Instance { get; } = new HermesIAP();
+#endif
 #if IOS
         IAppleConfiguration appleConfig;
 #endif
-        IExtensionProvider extensions;
-        InitStatus initStatus;
-        Action<InitStatus> onInitDone;
-        IStoreController storeController;
-        byte[] appleTangleData;
-        byte[] googleTangleData;
+        protected IExtensionProvider extensions;
+        protected InitStatus initStatus;
+        protected Action<InitStatus> onInitDone;
+        protected IStoreController storeController;
+        protected byte[] appleTangleData;
+        protected byte[] googleTangleData;
         
         /// <summary>
         /// Callback for when restore is completed.
         /// </summary>
-        Action<PurchaseResponse> onRestored;
+        protected Action<PurchaseResponse> onRestored;
         
         /// <summary>
         /// Result of product purchase.
@@ -50,7 +57,7 @@ namespace HermesIAP {
         // INIT
         //*******************************************************************
         // Prevent class from being instanced explicitly.
-        HermesIAP() {
+        protected HermesIAP() {
         }
 
         /// <summary>
@@ -141,10 +148,11 @@ namespace HermesIAP {
             onInitDone(initStatus);
             onInitDone = null;
         }
-
+    
         //*******************************************************************
         // SUBSCRIPTION
         //*******************************************************************
+#if IOS 
         /// <summary>
         /// Is specified subscription active.
         /// </summary>
@@ -176,7 +184,7 @@ namespace HermesIAP {
         /// If empty or null, assume productID is in its own group.</param>
         /// <returns>Offer details if exists.</returns>
         public IntroductoryOffer GetIntroductoryOfferDetails(string productID, string[] groupProductIDs = null) {
-#if IOS
+
             var apple = extensions.GetExtension<IAppleExtensions>();
   
             // Determine if product exists.
@@ -188,8 +196,9 @@ namespace HermesIAP {
 
             // Get product details.
             IntroductoryOffer offer = null;
-            try {
-                offer = new IntroductoryOffer(products[productID]);
+            try
+            {
+                offer = new IOSIntroductoryOfferFactory(products[productID]).Make();
             } catch (InvalidOfferException) {
                 // Invalid offer.
                 return null;
@@ -226,9 +235,6 @@ namespace HermesIAP {
             }
 
             return offer;
-#else
-            throw new NotImplementedException();
-#endif
         }
         
         /// <summary>
@@ -244,7 +250,7 @@ namespace HermesIAP {
                 .LastOrDefault();
         }
         
-        SubscriptionInfo[] GetPurchasedSubscriptions(string productId) {
+        public SubscriptionInfo[] GetPurchasedSubscriptions(string productId) {
             var products = GetAvailableProducts().Where(p => 
                 p.definition.id == productId &&
                 p.definition.type == ProductType.Subscription &&
@@ -267,7 +273,8 @@ namespace HermesIAP {
 
             return subscriptions;
         }
-
+#endif        
+        
         //*******************************************************************
         // PURCHASE
         //*******************************************************************
@@ -303,8 +310,6 @@ namespace HermesIAP {
 #endif
 #if IOS
             return ProcessIosPurchase(e);
-#elif UNITY_ANDROID
-            return ProcessGooglePurchase(e);
 #else
             Debug.LogWarning("Receipt validation not available for current platform");
             OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
@@ -362,49 +367,6 @@ namespace HermesIAP {
         }
 #endif
 
-#if UNITY_ANDROID
-        PurchaseProcessingResult ProcessGooglePurchase(PurchaseEventArgs e) {
-            // receipt validation tangle data not available.
-            if (googleTangleData == null) {
-                OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
-                return PurchaseProcessingResult.Complete;
-            }
-            
-            // validate receipt.
-            try {
-                var validator = new CrossPlatformValidator(googleTangleData, appleTangleData, Application.identifier);
-                // On Google Play, result has a single product ID.
-                // On Apple stores, receipts contain multiple products.
-                var result = validator.Validate(e.purchasedProduct.receipt);
-#if DEBUG_IAP
-                // For informational purposes, we list the receipt(s)
-                foreach (IPurchaseReceipt receipt in result) {
-                    var sb = new StringBuilder("Purchase Receipt Details:");
-                    sb.Append($"\n  Product ID: {receipt.productID}");
-                    sb.Append($"\n  Purchase Date: {receipt.purchaseDate}");
-                    sb.Append($"\n  Transaction ID: {receipt.transactionID}");
-                    
-                    var googleReceipt = receipt as GooglePlayReceipt;
-                    if (googleReceipt != null) {
-                        // This is Google's Order ID.
-                        // Note that it is null when testing in the sandbox
-                        // because Google's sandbox does not provide Order IDs.
-                        sb.Append($"\n  Purchase State: {googleReceipt.purchaseState}");
-                        sb.Append($"\n  Purchase Token: {googleReceipt.purchaseToken}");
-                    }
-                    
-                    Debug.Log(sb);
-                }
-#endif          
-                OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
-            } catch (IAPSecurityException err) {
-                Debug.Log($"Invalid receipt or security exception: {err.Message}");
-                OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
-            }
-
-            return PurchaseProcessingResult.Complete;
-        }
-#endif
         void IStoreListener.OnPurchaseFailed(Product p, PurchaseFailureReason reason) {
             Debug.LogWarning($"IAP purchase error: {reason}");
             HandleRestoreFailure(reason);
@@ -440,6 +402,7 @@ namespace HermesIAP {
         //*******************************************************************
         // PRODUCTS
         //*******************************************************************
+
         /// <summary>
         /// Get all available products.
         /// </summary>
@@ -448,7 +411,6 @@ namespace HermesIAP {
                 Debug.LogWarning("Cannot get products. IAPManager not successfully initialized!");
                 return null;
             }
-
             // only return all products that are available for purchase.
             return storeController.products.all.Where(p => p.availableToPurchase).ToArray();
         }
@@ -468,13 +430,8 @@ namespace HermesIAP {
             }
 
             onRestored = onDone;
-#if IOS
             var apple = extensions.GetExtension<IAppleExtensions>();
             apple.RestoreTransactions(result => {
-#else
-            var googlePlay = extensions.GetExtension<IGooglePlayStoreExtensions>();
-            googlePlay.RestoreTransactions(result => {
-#endif
                 // still waiting for result.
                 if (onRestored != null) {
                     if (result) {
@@ -485,7 +442,7 @@ namespace HermesIAP {
                         onDone(PurchaseResponse.Unknown);
                         onRestored = null;
                     }
-                } 
+                }
             });
         }
 

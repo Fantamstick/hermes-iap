@@ -1,4 +1,4 @@
-![](https://img.shields.io/badge/version-v2.0.4-green)
+![](https://img.shields.io/badge/version-v2.1.0.beta3-green)
 # Hermes IAP
 
 IAP manager package for Unity. Makes use of local receipt validation as specified in [Unity's  documentation](https://docs.unity3d.com/Manual/UnityIAPValidatingReceipts.html).
@@ -11,6 +11,16 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 - [ ] Non-Consumables  (untested)
 - [ ] Deferred Purchases (untested)
 
+### Google Play
+Subscription
+- [x] Auto-Renewable Subscriptions
+- [x] Non-Renewing Subscriptions
+- [ ] Upgrade / Downgrade
+- [ ] Google Play Developer API
+- [ ] Confirm price changes for subscriptions
+- [ ] Deferred Purchases
+
+
 ## Requirements
 
 - Unity 2019.4+
@@ -19,6 +29,11 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 ## Dependencies
 
 - Unity IAP  v2.2.2  (Jan 21, 2021)
+- [Google Play Plugins for Unity v1.4.0](https://github.com/google/play-unity-plugins) (Mar 13, 2021)
+    - Included [Google Play Billing Library](https://developer.android.com/google/play/billing/integrate) version 3.0.3
+    - official: 
+      - https://developer.android.com/google/play/billing/integrate
+      - https://developer.android.com/google/play/billing/unity
 
 ## Installation as UPM Package
 Add `https://github.com/Fantamstick/hermes-iap/Assets/Hermes` from the Package Manager.
@@ -26,7 +41,7 @@ Add `https://github.com/Fantamstick/hermes-iap/Assets/Hermes` from the Package M
 or locate `manifest.json` in your Unity project's `Packages` folder and add the following dependencies:
 ```
 "dependencies": {
-  "com.hermes.iap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#2.0.5",
+  "com.fantamstick.hermesiap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#2.0.5",
   ...
 }
 ```
