@@ -14,7 +14,7 @@ namespace HermesIAP
             // https://developer.android.com/reference/com/android/billingclient/api/SkuDetails?hl=ja
 #if DEBUG_IAP
             Debug.Log("---GooglePlayIntroductoryOfferFactory");
-    Debug.Log(sku.JsonSkuDetails);
+            Debug.Log(sku.JsonSkuDetails);
 #endif
 
             // Subscription period, specified in ISO 8601 format.
