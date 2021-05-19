@@ -776,7 +776,7 @@ PlayerSettings:
   webGLWasmStreaming: 0
   scriptingDefineSymbols:
     4: DEBUG_IAP
-    7: DEBUG_IAP
+    7: DEBUG_IAP;UNITY_PURCHASING
   platformArchitecture: {}
   scriptingBackend:
     Android: 1
