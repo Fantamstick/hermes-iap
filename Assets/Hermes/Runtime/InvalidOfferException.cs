@@ -1,3 +1,4 @@
-﻿public class InvalidOfferException : System.Exception
-{
+﻿namespace Hermes {
+    public class InvalidOfferException : System.Exception {
+    }
 }

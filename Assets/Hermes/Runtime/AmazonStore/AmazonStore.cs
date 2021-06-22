@@ -2,7 +2,6 @@
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Security;
-using System.Linq;
 using System.Text;
 #if DEBUG_IAP
 using System.Reflection;
@@ -10,31 +9,42 @@ using System.Reflection;
 using System.Threading.Tasks;
 using HermesIAP;
 
-namespace HermesIAP
-{
+namespace Hermes {
     /// <summary>
-    /// Hermes In-App Purchase Manager.
+    /// Hermes In-App Purchase Manager for Amazon Store.
     /// </summary>
-    public class AmazonHermesIAP : HermesIAP, IStoreListener {
+    public class AmazonStore : IStoreListener {
+        IAppleConfiguration appleConfig;
+        IExtensionProvider extensions;
+        InitStatus initStatus;
+        Action<InitStatus> onInitDone;
+        IStoreController storeController;
+        byte[] googleTangleData;
+        
+        /// <summary>
+        /// Callback for when restore is completed.
+        /// </summary>
+        Action<PurchaseResponse> onRestored;
+        
         /// <summary>
         /// Result of product purchase.
         /// </summary>
         public event Action<PurchaseResponse, Product> OnPurchased;
+
+        //*******************************************************************
+        // Instantiation
+        //*******************************************************************
+        // Prevent class from being instanced explicitly outside.
+        AmazonStore() {
+        }
         
-        
-        internal static AmazonHermesIAP CreateInstance()
-        {
-            return new AmazonHermesIAP();
+        internal static AmazonStore CreateInstance() {
+            return new AmazonStore();
         }
         
         //*******************************************************************
         // INIT
         //*******************************************************************
-        // Prevent class from being instanced explicitly.
-        protected AmazonHermesIAP()
-        {
-        }
-    
         /// <summary>
         /// Has Hermes successfully initialized?
         /// </summary>
@@ -45,10 +55,8 @@ namespace HermesIAP
         /// </summary>
         /// <param name="iapBuilder">Builder data used to create instance.</param>
         /// <param name="onDone">Callback when initialization is done.</param>
-        public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone) 
-        {
-            if (IsInit) 
-            {
+        public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone) {
+            if (IsInit) {
                 onDone(initStatus);
                 return;
             }
@@ -58,8 +66,7 @@ namespace HermesIAP
             var builder = ConfigurationBuilder.Instance(module);
     
             // Add Products to store.
-            foreach (var key in iapBuilder.Products.Keys) 
-            {
+            foreach (var key in iapBuilder.Products.Keys) {
                 builder.AddProduct(key, iapBuilder.Products[key]);
             }
     
@@ -68,8 +75,7 @@ namespace HermesIAP
             onInitDone = onDone;
         }
     
-        void IStoreListener.OnInitialized(IStoreController controller, IExtensionProvider extensions) 
-        {
+        void IStoreListener.OnInitialized(IStoreController controller, IExtensionProvider extensions) {
             Debug.Log("IAP Manager successfully initialized");
             
             storeController = controller;
@@ -84,10 +90,8 @@ namespace HermesIAP
         /// This is NOT called when device is offline.
         /// Device will continuously try to init until device is online.
         /// </summary>
-        void IStoreListener.OnInitializeFailed(InitializationFailureReason error) 
-        {
-            switch (error) 
-            {
+        void IStoreListener.OnInitializeFailed(InitializationFailureReason error) {
+            switch (error) {
                 case InitializationFailureReason.AppNotKnown:
                     initStatus = InitStatus.AppNotKnown;
                     break;
@@ -113,23 +117,19 @@ namespace HermesIAP
         /// <summary>
         /// Try to Purchase a product
         /// </summary>
-        public PurchaseRequest PurchaseProduct(string productId)
-        {
-            if (!IsInit) 
-            {
+        public PurchaseRequest PurchaseProduct(string productId) {
+            if (!IsInit) {
                 Debug.LogWarning("Cannot purchase product. IAPManager not successfully initialized!");
                 return PurchaseRequest.NoInit;
             }
     
             var product = storeController.products.WithID(productId);
-            if (product == null) 
-            {
+            if (product == null) {
                 Debug.LogWarning("Cannot purchase product. Not found!");
                 return PurchaseRequest.ProductUnavailable;
             }
     
-            if (!product.availableToPurchase) 
-            {
+            if (!product.availableToPurchase) {
                 Debug.LogWarning("Cannot purchase product. Not available for purchase!");
                 return PurchaseRequest.PurchasingUnavailable;
             }
@@ -151,7 +151,7 @@ namespace HermesIAP
             // validate receipt.
             try {
                 Debug.Log($" ***** ProcessGooglePurchase   validate receipt.");
-                var validator = new CrossPlatformValidator(googleTangleData, appleTangleData, Application.identifier);
+                var validator = new CrossPlatformValidator(googleTangleData, null, Application.identifier);
                 // On Google Play, result has a single product ID.
                 // On Apple stores, receipts contain multiple products.
                 var result = validator.Validate(args.purchasedProduct.receipt);
@@ -166,9 +166,7 @@ namespace HermesIAP
                 }
     #endif
                 OnPurchased?.Invoke(PurchaseResponse.Ok, args.purchasedProduct);
-            }
-            catch (IAPSecurityException err)
-            {
+            } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");
                 OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, args.purchasedProduct);
             }

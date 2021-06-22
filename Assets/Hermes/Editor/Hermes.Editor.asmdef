@@ -1,5 +1,5 @@
 {
-    "name": "HermesIAP.Editor",
+    "name": "Hermes.Editor",
     "references": [
         "GUID:60bfecf5cb232594891bc622f40d6bed",
         "GUID:e25a61468ff30f44fad56a6b40062363",

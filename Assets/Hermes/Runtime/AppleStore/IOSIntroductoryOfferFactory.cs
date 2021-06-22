@@ -5,7 +5,7 @@ using UnityEngine;
 using System.Text;
 #endif
 
-namespace HermesIAP
+namespace Hermes
 {
     internal class IOSIntroductoryOfferFactory : IntroductoryOfferFactory
     {

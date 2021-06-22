@@ -1,6 +1,6 @@
 using System;
 
-namespace HermesIAP
+namespace Hermes
 {
     internal abstract class IntroductoryOfferFactory
     {

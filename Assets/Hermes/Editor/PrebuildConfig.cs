@@ -1,10 +1,9 @@
-﻿using UnityEditor.Build;
+﻿using System;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
-#if UNITY_ANDROID
 using UnityEditor.Purchasing;
 using UnityEngine;
 using UnityEngine.Purchasing;
-#endif
 
 /// <summary>
 /// Prebuild Hermes configuration.
@@ -13,14 +12,17 @@ public class PrebuildConfig : IPreprocessBuildWithReport {
     public int callbackOrder => 0;
     
     public void OnPreprocessBuild(BuildReport report) {
-#if UNITY_ANDROID
 #if AMAZON
         UnityPurchasingEditor.TargetAndroidStore(AppStore.AmazonAppStore);
         Debug.Log("Success: IAP Targeting Amazon Store");
-#else
+#elif UNITY_ANDROID
         UnityPurchasingEditor.TargetAndroidStore(AppStore.GooglePlay);
         Debug.Log("Success: IAP Targeting GooglePlay Store");
-#endif
+#elif UNITY_IOS
+        UnityPurchasingEditor.TargetAndroidStore(AppStore.AppleAppStore);
+        Debug.Log("Success: IAP Targeting Apple Store");
+#else
+        throw new NotSupportedException($"Target {Application.platform} not supported");
 #endif
     }
 }

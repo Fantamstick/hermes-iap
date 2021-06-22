@@ -12,54 +12,54 @@ using System.Text;
 using System.Reflection;
 #endif
 using System.Threading.Tasks;
+using HermesIAP;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
 using UnityEngine.Purchasing.Security;
 
-namespace HermesIAP {
+namespace Hermes {
     /// <summary>
-    /// Hermes In-App Purchase Manager.
+    /// Hermes In-App Purchase Manager for Apple Store.
     /// </summary>
-    public class HermesIAP : IStoreListener {
-#if UNITY_ANDROID
-        public static GooglePlayHermesIAP Instance { get; } = GooglePlayHermesIAP.CreateInstance();
-#else
-        public static HermesIAP Instance { get; } = new HermesIAP();
-#endif
-#if IOS
+    public class AppleStore : IStoreListener {
         IAppleConfiguration appleConfig;
-#endif
-        protected IExtensionProvider extensions;
-        protected InitStatus initStatus;
-        protected Action<InitStatus> onInitDone;
-        protected IStoreController storeController;
-        protected byte[] appleTangleData;
-        protected byte[] googleTangleData;
+        IExtensionProvider extensions;
+        InitStatus initStatus;
+        Action<InitStatus> onInitDone;
+        IStoreController storeController;
+        byte[] appleTangleData;
         
         /// <summary>
         /// Callback for when restore is completed.
         /// </summary>
-        protected Action<PurchaseResponse> onRestored;
+        Action<PurchaseResponse> onRestored;
         
         /// <summary>
-        /// Result of product purchase.
+        /// Result of product purchase or restore.
         /// </summary>
         public event Action<PurchaseResponse, Product> OnPurchased;
-#if IOS
+
         /// <summary>
         /// Purchase request was deferred to parent.
         /// </summary>
         public event Action<Product> OnPurchaseDeferred;
-#endif
+
+        //*******************************************************************
+        // Instantiation
+        //*******************************************************************
+        // Prevent class from being instanced explicitly outside.
+        AppleStore() {
+        }
+        
+        internal static AppleStore CreateInstance() {
+            return new AppleStore();
+        }
+        
         //*******************************************************************
         // INIT
         //*******************************************************************
-        // Prevent class from being instanced explicitly.
-        protected HermesIAP() {
-        }
-
         /// <summary>
         /// Has Hermes successfully initialized?
         /// </summary>
@@ -83,10 +83,9 @@ namespace HermesIAP {
             }
             
             appleTangleData = iapBuilder.AppleTangleData ?? null;
-            googleTangleData = iapBuilder.GoogleTangleData ?? null;
             var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
             var builder = ConfigurationBuilder.Instance(module);
-#if IOS
+
             // Verify if purchases are possible on this iOS device.
             var canMakePayments = builder.Configure<IAppleConfiguration>().canMakePayments;
             if (!canMakePayments) {
@@ -95,7 +94,7 @@ namespace HermesIAP {
             }
 
             appleConfig = builder.Configure<IAppleConfiguration>();
-#endif
+
             // Add Products to store.
             foreach (var key in iapBuilder.Products.Keys) {
                 builder.AddProduct(key, iapBuilder.Products[key]);
@@ -109,13 +108,13 @@ namespace HermesIAP {
             storeController = controller;
             this.extensions = extensions;
             initStatus = InitStatus.Ok;
-#if IOS
+
             // Notify callback for when purchases are deferred to a parent.
             extensions.GetExtension<IAppleExtensions>().RegisterPurchaseDeferredListener(product => {
                 Debug.Log("Purchase request deferred to parent.");
                 OnPurchaseDeferred?.Invoke(product);
             });
-#endif
+
             Debug.Log("IAP Manager successfully initialized");
 
             onInitDone(initStatus);
@@ -152,7 +151,6 @@ namespace HermesIAP {
         //*******************************************************************
         // SUBSCRIPTION
         //*******************************************************************
-#if IOS 
         /// <summary>
         /// Is specified subscription active.
         /// </summary>
@@ -273,8 +271,7 @@ namespace HermesIAP {
 
             return subscriptions;
         }
-#endif        
-        
+
         //*******************************************************************
         // PURCHASE
         //*******************************************************************
@@ -308,17 +305,6 @@ namespace HermesIAP {
 #if DEBUG_IAP
             Debug.Log("Processing a purchase");
 #endif
-#if IOS
-            return ProcessIosPurchase(e);
-#else
-            Debug.LogWarning("Receipt validation not available for current platform");
-            OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
-            return PurchaseProcessingResult.Complete;
-#endif
-        }
-        
-#if IOS
-        PurchaseProcessingResult ProcessIosPurchase(PurchaseEventArgs e) {
             // receipt validation tangle data not available.
             if (appleTangleData == null) {
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
@@ -365,7 +351,6 @@ namespace HermesIAP {
 
             return PurchaseProcessingResult.Complete;
         }
-#endif
 
         void IStoreListener.OnPurchaseFailed(Product p, PurchaseFailureReason reason) {
             Debug.LogWarning($"IAP purchase error: {reason}");
@@ -402,7 +387,6 @@ namespace HermesIAP {
         //*******************************************************************
         // PRODUCTS
         //*******************************************************************
-
         /// <summary>
         /// Get all available products.
         /// </summary>
@@ -493,8 +477,7 @@ namespace HermesIAP {
             
             onRestored = null;
         }
-        
-#if IOS
+
         //*******************************************************************
         // REFRESH
         //*******************************************************************
@@ -516,6 +499,5 @@ namespace HermesIAP {
                 onDone?.Invoke(false);
             });
         }
-#endif
     }
 }

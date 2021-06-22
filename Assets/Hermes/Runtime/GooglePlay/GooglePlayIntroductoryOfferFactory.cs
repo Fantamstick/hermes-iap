@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using Google.Play.Billing.Internal;
 using UnityEngine;
 
-namespace HermesIAP
+namespace Hermes
 {
     internal class GooglePlayIntroductoryOfferFactory : IntroductoryOfferFactory
     {

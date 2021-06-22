@@ -1,4 +1,4 @@
-﻿namespace HermesIAP {
+﻿namespace Hermes {
     /// <summary>
     /// IAP Init status
     /// </summary>

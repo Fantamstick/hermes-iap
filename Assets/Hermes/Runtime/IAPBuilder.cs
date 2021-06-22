@@ -2,7 +2,7 @@
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
 
-namespace HermesIAP {
+namespace Hermes {
     public class IAPBuilder {
         /// <summary>
         /// IAP purchases.
