@@ -70,9 +70,9 @@ namespace Hermes {
                 builder.AddProduct(key, iapBuilder.Products[key]);
             }
     
-            UnityPurchasing.Initialize(this, builder);
-    
             onInitDone = onDone;
+
+            UnityPurchasing.Initialize(this, builder);
         }
     
         void IStoreListener.OnInitialized(IStoreController controller, IExtensionProvider extensions) {
