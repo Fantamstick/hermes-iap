@@ -6,7 +6,7 @@ using Cysharp.Threading.Tasks;
 using Google.Play.Billing.Internal;
 using UnityEngine;
 
-namespace HermesIAP.GoogleUtil
+namespace Hermes.GoogleUtil
 {
     /// <summary>
     /// BillingClient.queryPurchase() 用

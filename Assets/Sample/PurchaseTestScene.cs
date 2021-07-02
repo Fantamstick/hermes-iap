@@ -119,7 +119,7 @@ public class PurchaseTestScene : MonoBehaviour
         OnClickGetExpiration();
 #else
         AppendText("clicked restore, waiting for response...");
-        HermesIAP.HermesIAP.Instance.RestorePurchases(20_000, onDone: (resp) =>
+        Hermes.IAP.Instance.RestorePurchases(20_000, onDone: (resp) =>
         {
             AppendText($"Restore attempt, {resp} from product");
 
@@ -221,7 +221,7 @@ public class PurchaseTestScene : MonoBehaviour
 #if UNITY_ANDROID
         Product[] products = await Hermes.IAP.Instance.GetAvailableProductsAsync();
 #else
-        Product[] products = HermesIAP.HermesIAP.Instance.GetAvailableProducts();
+        Product[] products = Hermes.IAP.Instance.GetAvailableProducts();
 #endif
         if (products.Length == 0)
         {
@@ -267,7 +267,7 @@ public class PurchaseTestScene : MonoBehaviour
 #if UNITY_ANDROID            
             var offer = await Hermes.IAP.Instance.GetIntroductoryOfferDetailsAsync(id);
 #else
-            var offer = HermesIAP.HermesIAP.Instance.GetIntroductoryOfferDetails(id);
+            var offer = Hermes.IAP.Instance.GetIntroductoryOfferDetails(id);
 #endif
             if (offer != null)
             {

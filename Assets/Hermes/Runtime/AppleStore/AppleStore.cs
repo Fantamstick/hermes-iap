@@ -12,7 +12,6 @@ using System.Text;
 using System.Reflection;
 #endif
 using System.Threading.Tasks;
-using HermesIAP;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Purchasing;

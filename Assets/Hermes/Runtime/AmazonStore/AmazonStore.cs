@@ -7,7 +7,6 @@ using System.Text;
 using System.Reflection;
 #endif
 using System.Threading.Tasks;
-using HermesIAP;
 
 namespace Hermes {
     /// <summary>

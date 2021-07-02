@@ -1,9 +1,10 @@
+#if UNITY_ANDROID
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 using Google.Play.Billing.Internal;
-using HermesGoogle = HermesIAP.GoogleUtil;
+using HermesGoogle = Hermes.GoogleUtil;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
@@ -535,3 +536,4 @@ namespace Hermes {
         }
     }
 }
+#endif
