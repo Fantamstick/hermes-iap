@@ -19,7 +19,7 @@ public class PrebuildConfig : IPreprocessBuildWithReport {
         UnityPurchasingEditor.TargetAndroidStore(AppStore.GooglePlay);
         Debug.Log("Success: IAP Targeting GooglePlay Store");
 #elif UNITY_IOS
-        UnityPurchasingEditor.TargetAndroidStore(AppStore.AppleAppStore);
+        // No need to do anything.
         Debug.Log("Success: IAP Targeting Apple Store");
 #else
         throw new NotSupportedException($"Target {Application.platform} not supported");
