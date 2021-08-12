@@ -8,7 +8,7 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 - [x] Auto-Renewable Subscriptions
 - [x] Non-Renewing Subscriptions
 - [ ] Consumables (untested)
-- [ ] Non-Consumables  (untested)
+- [x] Non-Consumables
 - [ ] Deferred Purchases (untested)
 
 ### Google Play
@@ -24,11 +24,11 @@ Subscription
 ## Requirements
 
 - Unity 2019.4+
-- Tested on iOS and GooglePlay
+- Tested on iOS, GooglePlay and Amazon Store
 
 ## Dependencies
 
-- Unity IAP  v2.2.2  (Jan 21, 2021)
+- Unity IAP  v3.1.0  (April 19, 2021)
 - [Google Play Plugins for Unity v1.4.0](https://github.com/google/play-unity-plugins) (Mar 13, 2021)
     - Included [Google Play Billing Library](https://developer.android.com/google/play/billing/integrate) version 3.0.3
     - official: 
@@ -41,7 +41,7 @@ Add `https://github.com/Fantamstick/hermes-iap/Assets/Hermes` from the Package M
 or locate `manifest.json` in your Unity project's `Packages` folder and add the following dependencies:
 ```
 "dependencies": {
-  "com.fantamstick.hermesiap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#2.0.5",
+  "com.fantamstick.hermesiap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#3.0",
   ...
 }
 ```
