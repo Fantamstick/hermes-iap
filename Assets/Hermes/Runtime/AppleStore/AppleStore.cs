@@ -24,7 +24,7 @@ namespace Hermes {
     /// </summary>
     public class AppleStore : IStoreListener {
         IAppleConfiguration appleConfig;
-        IExtensionProvider extensions;
+        IAppleExtensions apple;
         InitStatus initStatus;
         Action<InitStatus> onInitDone;
         IStoreController storeController;
@@ -33,7 +33,7 @@ namespace Hermes {
         /// <summary>
         /// Callback for when restore is completed.
         /// </summary>
-        Action<PurchaseResponse> onRestored;
+        public Action<PurchaseResponse> onRestored;
         
         /// <summary>
         /// Result of product purchase or restore.
@@ -77,7 +77,6 @@ namespace Hermes {
 
             if (onInitDone != null) {
                 Debug.LogError("Hermes is already in the process of initializing.");
-                onDone(initStatus);
                 return;
             }
             
@@ -105,11 +104,11 @@ namespace Hermes {
 
         void IStoreListener.OnInitialized(IStoreController controller, IExtensionProvider extensions) {
             storeController = controller;
-            this.extensions = extensions;
+            apple = extensions.GetExtension<IAppleExtensions>();
             initStatus = InitStatus.Ok;
 
             // Notify callback for when purchases are deferred to a parent.
-            extensions.GetExtension<IAppleExtensions>().RegisterPurchaseDeferredListener(product => {
+            apple.RegisterPurchaseDeferredListener(product => {
                 Debug.Log("Purchase request deferred to parent.");
                 OnPurchaseDeferred?.Invoke(product);
             });
@@ -181,9 +180,6 @@ namespace Hermes {
         /// If empty or null, assume productID is in its own group.</param>
         /// <returns>Offer details if exists.</returns>
         public IntroductoryOffer GetIntroductoryOfferDetails(string productID, string[] groupProductIDs = null) {
-
-            var apple = extensions.GetExtension<IAppleExtensions>();
-  
             // Determine if product exists.
             var products = apple.GetProductDetails();
             if (products == null || !products.ContainsKey(productID)) {
@@ -413,7 +409,7 @@ namespace Hermes {
             }
 
             onRestored = onDone;
-            var apple = extensions.GetExtension<IAppleExtensions>();
+
             apple.RestoreTransactions(result => {
                 // still waiting for result.
                 if (onRestored != null) {
@@ -489,7 +485,6 @@ namespace Hermes {
                 return;
             }
 
-            var apple = extensions.GetExtension<IAppleExtensions>();
             apple.RefreshAppReceipt(successCallback: (success) => {
                 Debug.Log("Successfully refreshed purchases");
                 onDone?.Invoke(true);

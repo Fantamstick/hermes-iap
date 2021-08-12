@@ -20,7 +20,7 @@ namespace Hermes {
     /// </summary>
     public class GooglePlayStore : IStoreListener {
         IAppleConfiguration appleConfig;
-        IExtensionProvider extensions;
+        Google.Play.Billing.IGooglePlayStoreExtensions googlePlay;
         InitStatus initStatus;
         Action<InitStatus> onInitDone;
         IStoreController storeController;
@@ -68,7 +68,6 @@ namespace Hermes {
 
             if (onInitDone != null) {
                 Debug.LogError("Hermes is already in the process of initializing.");
-                onDone(initStatus);
                 return;
             }
 
@@ -90,7 +89,7 @@ namespace Hermes {
             Debug.Log("IAP Manager successfully initialized");
             
             storeController = controller;
-            this.extensions = extensions;
+            googlePlay = extensions.GetExtension<Google.Play.Billing.IGooglePlayStoreExtensions>();
             initStatus = InitStatus.Ok;
 
             onInitDone(initStatus);
@@ -388,7 +387,6 @@ namespace Hermes {
             
             bool isProcessing = true;
 
-            var googlePlay = extensions.GetExtension<Google.Play.Billing.IGooglePlayStoreExtensions>();
             googlePlay.RestoreTransactions(result => {
                 Debug.Log($"googlePlay.RestoreTransactions result = {result}");
                 
@@ -445,7 +443,6 @@ namespace Hermes {
         /// </summary>
         /// <returns>Dictionary key:productId / value:SKU json</returns>
         public Dictionary<string, string> GetSKUsJson() {
-            var googlePlay = extensions.GetExtension<Google.Play.Billing.GooglePlayStoreImpl>();
             Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
 #if DEBUG_IAP
             foreach (var pair in skus) {
@@ -460,7 +457,6 @@ namespace Hermes {
         /// </summary>
         /// <returns>Dictionary key:productId / value:SKU detail</returns>
         public Dictionary<string, SkuDetails> GetSKUs() {
-            var googlePlay = extensions.GetExtension<Google.Play.Billing.GooglePlayStoreImpl>();
             Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
             Dictionary<string, SkuDetails> skuDetails = new Dictionary<string, SkuDetails>();
             

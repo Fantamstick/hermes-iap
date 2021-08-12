@@ -7,6 +7,7 @@ using System.Text;
 using System.Reflection;
 #endif
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 
 namespace Hermes {
     /// <summary>
@@ -14,17 +15,12 @@ namespace Hermes {
     /// </summary>
     public class AmazonStore : IStoreListener {
         IAppleConfiguration appleConfig;
-        IExtensionProvider extensions;
+        IAmazonExtensions amazon;
         InitStatus initStatus;
         Action<InitStatus> onInitDone;
         IStoreController storeController;
         byte[] googleTangleData;
-        
-        /// <summary>
-        /// Callback for when restore is completed.
-        /// </summary>
-        Action<PurchaseResponse> onRestored;
-        
+
         /// <summary>
         /// Result of product purchase.
         /// </summary>
@@ -60,7 +56,13 @@ namespace Hermes {
                 return;
             }
     
+            if (onInitDone != null) {
+                Debug.LogError("Hermes is already in the process of initializing.");
+                return;
+            }
+            
             googleTangleData = iapBuilder.GoogleTangleData ?? null;
+            
             var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
             var builder = ConfigurationBuilder.Instance(module);
     
@@ -78,8 +80,9 @@ namespace Hermes {
             Debug.Log("IAP Manager successfully initialized");
             
             storeController = controller;
-            this.extensions = extensions;
+            amazon = extensions.GetExtension<IAmazonExtensions>();
             initStatus = InitStatus.Ok;
+            
             onInitDone(initStatus);
             onInitDone = null;
         }
@@ -149,7 +152,7 @@ namespace Hermes {
     
             // validate receipt.
             try {
-                Debug.Log($" ***** ProcessGooglePurchase   validate receipt.");
+                Debug.Log($" ***** ProcessAmazonPurchase   validate receipt.");
                 var validator = new CrossPlatformValidator(googleTangleData, null, Application.identifier);
                 // On Google Play, result has a single product ID.
                 // On Apple stores, receipts contain multiple products.
@@ -175,8 +178,7 @@ namespace Hermes {
         
         void IStoreListener.OnPurchaseFailed(Product p, PurchaseFailureReason reason) {
             Debug.LogWarning($"IAP purchase error: {reason}");
-            HandleRestoreFailure(reason);
-    
+
             switch (reason) {
                 case PurchaseFailureReason.DuplicateTransaction:
                     OnPurchased?.Invoke(PurchaseResponse.DuplicateTransaction, p);
@@ -203,85 +205,6 @@ namespace Hermes {
                     OnPurchased?.Invoke(PurchaseResponse.Unknown, p);
                     break;
             }
-        }
-    
-        //*******************************************************************
-        // RESTORE
-        //*******************************************************************
-        /// <summary>
-        /// Restore purchases
-        /// (GooglePlay is automatic after Init)
-        /// </summary>
-        public void RestorePurchases(int timeoutMs, Action<PurchaseResponse> onDone) {
-            if (!IsInit) {
-                Debug.LogWarning("Cannot restore purchases. IAPManager not successfully initialized!");
-                onDone(PurchaseResponse.NoInit);
-                return;
-            }
-    
-            onRestored = onDone;
-            var apple = extensions.GetExtension<IAppleExtensions>();
-            apple.RestoreTransactions(result => {
-                // still waiting for result.
-                if (onRestored != null) {
-                    if (result) {
-                        Debug.Log("Waiting for restore...");
-                        WaitForRestorePurchases(timeoutMs);
-                    } else {
-                        Debug.Log("Restore process rejected.");
-                        onDone(PurchaseResponse.Unknown);
-                        onRestored = null;
-                    }
-                }
-            });
-        }
-    
-        async void WaitForRestorePurchases(int timeoutMs) {
-            int waitTime = 0;
-            int waitFrame = 100;
-            while (!IsTimeout() && onRestored != null) {
-                await Task.Delay(waitFrame);
-                waitTime += waitFrame;
-            }
-    
-            if (IsTimeout() && onRestored != null) {
-                Debug.Log("Restore timeout");
-                onRestored(PurchaseResponse.Timeout);
-                onRestored = null;
-            }
-    
-            bool IsTimeout() => waitTime >= timeoutMs;
-        }
-    
-        void HandleRestoreFailure(PurchaseFailureReason reason) {
-            switch (reason) {
-                case PurchaseFailureReason.DuplicateTransaction:
-                    onRestored?.Invoke(PurchaseResponse.DuplicateTransaction);
-                    break;
-                case PurchaseFailureReason.PaymentDeclined:
-                    onRestored?.Invoke(PurchaseResponse.PaymentDeclined);
-                    break;
-                case PurchaseFailureReason.ProductUnavailable:
-                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
-                    break;
-                case PurchaseFailureReason.PurchasingUnavailable:
-                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
-                    break;
-                case PurchaseFailureReason.SignatureInvalid:
-                    onRestored?.Invoke(PurchaseResponse.SignatureInvalid);
-                    break;
-                case PurchaseFailureReason.UserCancelled:
-                    onRestored?.Invoke(PurchaseResponse.UserCancelled);
-                    break;
-                case PurchaseFailureReason.ExistingPurchasePending:
-                    onRestored?.Invoke(PurchaseResponse.ExistingPurchasePending);
-                    break;
-                case PurchaseFailureReason.Unknown:
-                    onRestored?.Invoke(PurchaseResponse.Unknown);
-                    break;
-            }
-            
-            onRestored = null;
         }
     }
 }
