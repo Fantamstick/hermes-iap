@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using Cysharp.Threading.Tasks;
 using Hermes;
 using UnityEngine;
 using UnityEngine.Purchasing;
@@ -108,7 +110,7 @@ public class PurchaseTestScene : MonoBehaviour
     /// <summary>
     /// Restore button clicked.
     /// </summary>
-    public async void OnClickRestore()
+    public async UniTask OnClickRestore()
     {
 #if UNITY_ANDROID
         AppendText("clicked restore, waiting for response...");
@@ -118,6 +120,9 @@ public class PurchaseTestScene : MonoBehaviour
         
         OnClickGetExpiration();
 #else
+        // simulate restore wait period.
+        await UniTask.Delay(TimeSpan.FromSeconds(1));
+        
         AppendText("clicked restore, waiting for response...");
         Hermes.IAP.Instance.RestorePurchases(20_000, onDone: (resp) =>
         {
@@ -134,10 +139,13 @@ public class PurchaseTestScene : MonoBehaviour
     /// <summary>
     /// Get expiration button clicked.
     /// </summary>
-    public async void OnClickGetExpiration()
+    public async UniTask OnClickGetExpiration()
     {
-#if IOS
-        var expDate = HermesIAP.HermesIAP.Instance.GetSubscriptionExpiration(productId);
+#if UNITY_ANDROID
+        var ret = await Hermes.IAP.Instance.IsActiveSubscription(productId);
+        AppendText($"{productId} subscription active:{ret}");
+#else
+        var expDate = await IAP.Instance.GetSubscriptionExpiration(productId);
         if (expDate.HasValue)
         {
             AppendText($"{productId} expiration date = {expDate.Value}");
@@ -146,17 +154,36 @@ public class PurchaseTestScene : MonoBehaviour
         {
             AppendText($"{productId} has no expiration date");
         }
-#elif UNITY_ANDROID
-        var ret = await Hermes.IAP.Instance.IsActiveSubscription(productId);
-        AppendText($"{productId} subscription active:{ret}");
 #endif
     }
 
-    public async void OnClickGetInfo()
+    public async UniTask OnClickGetInfo()
     {
         AppendText("OnClick GetInfo...");
-#if IOS
-        SubscriptionInfo[] receipts = HermesIAP.HermesIAP.Instance.GetPurchasedSubscriptions(productId);
+#if UNITY_ANDROID
+        Purchase[] purchases = await Hermes.IAP.Instance.GetPurchasedSubscriptions(productId);
+        Debug.Log("OnClick GetInfo...");
+        if (purchases == null || purchases.Length == 0)
+        {
+            AppendText($"{productId} has no purchases.");
+        }
+        else
+        {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < purchases.Length; i++)
+            {
+                var purchase = purchases[i];
+                sb.Append(i).Append("----------------------------------\n");
+                foreach (PropertyInfo property in purchase.GetType().GetProperties())
+                {
+                    sb.Append(property.Name).Append("=").Append(property.GetValue(purchase)).Append("\n");
+                }
+                sb.Append("\n\n");
+            }
+            AppendText($"{productId} has {purchases.Length} purchases. {sb}");
+        }
+#else
+        SubscriptionInfo[] receipts = IAP.Instance.GetPurchasedSubscriptions(productId);
         if (receipts == null || receipts.Length == 0)
         {
             AppendText($"{productId} has no info");
@@ -189,28 +216,6 @@ public class PurchaseTestScene : MonoBehaviour
         
             AppendText($"{productId} has {receipts.Length} info. {sb}");
             Debug.Log($"{productId} has {receipts.Length} info. {sb}");
-        }
-#elif UNITY_ANDROID
-        Purchase[] purchases = await Hermes.IAP.Instance.GetPurchasedSubscriptions(productId);
-        Debug.Log("OnClick GetInfo...");
-        if (purchases == null || purchases.Length == 0)
-        {
-            AppendText($"{productId} has no purchases.");
-        }
-        else
-        {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < purchases.Length; i++)
-            {
-                var purchase = purchases[i];
-                sb.Append(i).Append("----------------------------------\n");
-                foreach (PropertyInfo property in purchase.GetType().GetProperties())
-                {
-                    sb.Append(property.Name).Append("=").Append(property.GetValue(purchase)).Append("\n");
-                }
-                sb.Append("\n\n");
-            }
-            AppendText($"{productId} has {purchases.Length} purchases. {sb}");
         }
 #endif
     }
@@ -267,7 +272,7 @@ public class PurchaseTestScene : MonoBehaviour
 #if UNITY_ANDROID            
             var offer = await Hermes.IAP.Instance.GetIntroductoryOfferDetailsAsync(id);
 #else
-            var offer = Hermes.IAP.Instance.GetIntroductoryOfferDetails(id);
+            var offer = await Hermes.IAP.Instance.GetIntroductoryOfferDetailsAsync(id);
 #endif
             if (offer != null)
             {

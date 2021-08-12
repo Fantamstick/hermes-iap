@@ -12,6 +12,7 @@ using System.Text;
 using System.Reflection;
 #endif
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Purchasing;
@@ -153,8 +154,8 @@ namespace Hermes {
         /// Is specified subscription active.
         /// </summary>
         /// <param name="productId">Product id.</param>
-        public bool IsSubscriptionActive(string productId) {
-            var expireDate = GetSubscriptionExpiration(productId);
+        public async UniTask<bool> IsActiveSubscription(string productId) {
+            var expireDate = await GetSubscriptionExpiration(productId);
             if (!expireDate.HasValue) {
                 Debug.Log($"{productId} has no expiration date.");
                 return false;
@@ -179,26 +180,25 @@ namespace Hermes {
         /// <param name="groupProductIDs">Group products that productID belongs to.
         /// If empty or null, assume productID is in its own group.</param>
         /// <returns>Offer details if exists.</returns>
-        public IntroductoryOffer GetIntroductoryOfferDetails(string productID, string[] groupProductIDs = null) {
+        public UniTask<IntroductoryOffer> GetIntroductoryOfferDetailsAsync(string productID, string[] groupProductIDs = null) {
             // Determine if product exists.
             var products = apple.GetProductDetails();
             if (products == null || !products.ContainsKey(productID)) {
                 // No product available.
-                return null;
+                return UniTask.FromResult<IntroductoryOffer>(null);
             }
 
             // Get product details.
             IntroductoryOffer offer = null;
-            try
-            {
+            try {
                 offer = new IOSIntroductoryOfferFactory(products[productID]).Make();
             } catch (InvalidOfferException) {
                 // Invalid offer.
-                return null;
+                return UniTask.FromResult<IntroductoryOffer>(null);
             } catch(Exception e) {
                 // Invalid json!
                 Debug.LogWarning($"Invalid product data detected! {e.Message}");
-                return null;
+                return UniTask.FromResult<IntroductoryOffer>(null);
             }
 
             try {
@@ -206,7 +206,7 @@ namespace Hermes {
                 AppleReceipt receipt = new AppleValidator(appleTangleData).Validate(receiptData);
                 if (receipt == null || receipt.inAppPurchaseReceipts == null) {
                     // no previous subscription purchased. 
-                    return offer;
+                    return UniTask.FromResult(offer);
                 }
 
                 if (groupProductIDs == null || groupProductIDs.Length == 0) {
@@ -220,14 +220,14 @@ namespace Hermes {
                     
                 if(prevCampaignPurchase != null) {
                     // user already used free trial or introductory offer. 
-                    return null;
+                    return UniTask.FromResult<IntroductoryOffer>(null);
                 }   
             } catch {
                 // unable to validate receipt or unable to access.
-                return null;
+                return UniTask.FromResult<IntroductoryOffer>(null);
             }
 
-            return offer;
+            return UniTask.FromResult(offer);
         }
         
         /// <summary>
@@ -235,12 +235,15 @@ namespace Hermes {
         /// </summary>
         /// <param name="productId">Product ID</param>
         /// <returns>Expiration date. Null if already expired</returns>
-        public DateTime? GetSubscriptionExpiration(string productId) {
+        public UniTask<DateTime?> GetSubscriptionExpiration(string productId) {
             // get most recent subscription
-            return GetPurchasedSubscriptions(productId)?
+            var mostRecentExpiration = GetPurchasedSubscriptions(productId)?
                 .Select(s => s.getExpireDate())
                 .OrderBy(date => date.Ticks)
                 .LastOrDefault();
+
+
+            return UniTask.FromResult(mostRecentExpiration);
         }
         
         public SubscriptionInfo[] GetPurchasedSubscriptions(string productId) {
