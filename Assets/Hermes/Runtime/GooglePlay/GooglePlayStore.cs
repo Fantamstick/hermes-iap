@@ -58,6 +58,22 @@ namespace Hermes {
         /// <summary>
         /// Initialize Hermes IAP.
         /// </summary>
+        /// <param name="builder">Builder data used to create instance.</param>
+        public async UniTask<InitStatus> InitAsync(IAPBuilder builder) {
+            // initialize.
+            bool isInitializing = true;
+
+            Init(builder, _ => isInitializing = false);
+    
+            // wait until complete.
+            await UniTask.WaitWhile(() => isInitializing);
+
+            return initStatus;
+        }
+
+        /// <summary>
+        /// Initialize Hermes IAP.
+        /// </summary>
         /// <param name="iapBuilder">Builder data used to create instance.</param>
         /// <param name="onDone">Callback when initialization is done.</param>
         public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone) {

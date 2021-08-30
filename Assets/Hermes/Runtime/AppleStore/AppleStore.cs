@@ -68,6 +68,22 @@ namespace Hermes {
         /// <summary>
         /// Initialize Hermes IAP.
         /// </summary>
+        /// <param name="builder">Builder data used to create instance.</param>
+        public async UniTask<InitStatus> InitAsync(IAPBuilder builder) {
+            // initialize.
+            bool isInitializing = true;
+
+            Init(builder, _ => isInitializing = false);
+    
+            // wait until complete.
+            await UniTask.WaitWhile(() => isInitializing);
+
+            return initStatus;
+        }
+
+        /// <summary>
+        /// Initialize Hermes IAP.
+        /// </summary>
         /// <param name="iapBuilder">Builder data used to create instance.</param>
         /// <param name="onDone">Callback when initialization is done.</param>
         public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone) {
@@ -404,6 +420,7 @@ namespace Hermes {
         /// Restore purchases
         /// (GooglePlay is automatic after Init)
         /// </summary>
+        /// <returns>Refresh process successfully</returns>
         public void RestorePurchases(int timeoutMs, Action<PurchaseResponse> onDone) {
             if (!IsInit) {
                 Debug.LogWarning("Cannot restore purchases. IAPManager not successfully initialized!");
@@ -480,8 +497,30 @@ namespace Hermes {
         // REFRESH
         //*******************************************************************
         /// <summary>
+        /// Refresh purchases asynchronously
+        /// </summary>
+        public async UniTask<bool> RefreshPurchasesAsync() {
+            if (!IsInit)
+                return false;
+
+            bool? refreshResult = null;
+            RefreshPurchases(OnRefreshed);
+        
+            // wait until purchase complete.
+            await UniTask.WaitUntil(() => refreshResult.HasValue);
+        
+            return refreshResult.Value;
+
+        
+            void OnRefreshed(bool isSuccessful) {
+                refreshResult = isSuccessful;
+            }
+        }
+        
+        /// <summary>
         /// Refresh purchases
         /// </summary>
+        /// <returns>Refresh process successfully</returns>
         public void RefreshPurchases(Action<bool> onDone = null) {
             if (!IsInit) {
                 Debug.LogError("Cannot refresh purchases. IAPManager not successfully initialized!");
