@@ -30,12 +30,7 @@ namespace Hermes {
         Action<InitStatus> onInitDone;
         IStoreController storeController;
         byte[] appleTangleData;
-        
-        /// <summary>
-        /// Callback for when restore is completed.
-        /// </summary>
-        public Action<PurchaseResponse> onRestored;
-        
+
         /// <summary>
         /// Result of product purchase or restore.
         /// </summary>
@@ -46,6 +41,11 @@ namespace Hermes {
         /// </summary>
         public event Action<Product> OnPurchaseDeferred;
 
+        /// <summary>
+        /// Callback for when restore is completed.
+        /// </summary>
+        Action<PurchaseResponse> onRestored;
+        
         //*******************************************************************
         // Instantiation
         //*******************************************************************
@@ -93,7 +93,7 @@ namespace Hermes {
             }
 
             if (onInitDone != null) {
-                Debug.LogError("Hermes is already in the process of initializing.");
+                Debug.LogWarning("Hermes is already in the process of initializing.");
                 return;
             }
             
@@ -257,8 +257,7 @@ namespace Hermes {
                 .Select(s => s.getExpireDate())
                 .OrderBy(date => date.Ticks)
                 .LastOrDefault();
-
-
+            
             return UniTask.FromResult(mostRecentExpiration);
         }
         
