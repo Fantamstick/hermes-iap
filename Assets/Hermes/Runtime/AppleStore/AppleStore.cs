@@ -71,12 +71,10 @@ namespace Hermes {
         /// <param name="builder">Builder data used to create instance.</param>
         public async UniTask<InitStatus> InitAsync(IAPBuilder builder) {
             // initialize.
-            bool isInitializing = true;
-
-            Init(builder, _ => isInitializing = false);
+            Init(builder, _ => {});
     
             // wait until complete.
-            await UniTask.WaitWhile(() => isInitializing);
+            await UniTask.WaitWhile(() => onInitDone != null);
 
             return initStatus;
         }
@@ -104,6 +102,7 @@ namespace Hermes {
             // Verify if purchases are possible on this iOS device.
             var canMakePayments = builder.Configure<IAppleConfiguration>().canMakePayments;
             if (!canMakePayments) {
+                initStatus = InitStatus.PurchasingDisabled;
                 onDone(InitStatus.PurchasingDisabled);
                 return;
             }
