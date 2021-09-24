@@ -1,25 +1,33 @@
-![](https://img.shields.io/badge/version-v2.1.0.beta3-green)
+![](https://img.shields.io/badge/version-v3.0.1-green)
 # Hermes IAP
 
 IAP manager package for Unity. Makes use of local receipt validation as specified in [Unity's  documentation](https://docs.unity3d.com/Manual/UnityIAPValidatingReceipts.html).
 
 ## Features
 
+### iOS
 - [x] Auto-Renewable Subscriptions
 - [x] Non-Renewing Subscriptions
-- [ ] Consumables (untested)
+- [x] Consumables
 - [x] Non-Consumables
-- [ ] Deferred Purchases (untested)
+- [x] Deferred Purchases (iOS)
 
 ### Google Play
-Subscription
-- [x] Auto-Renewable Subscriptions
-- [x] Non-Renewing Subscriptions
+- [x] Auto-Renewable Subscriptions (Partial support) *1
+- [x] Non-Renewing Subscriptions (Partial support) *1
+- [x] Non-Consumables
 - [ ] Upgrade / Downgrade
 - [ ] Google Play Developer API
 - [ ] Confirm price changes for subscriptions
 - [ ] Deferred Purchases
 
+*1: Partial support means subscriptions are confirmed on purchase, but subsequent subscription cancellations or updates are not automatically done. Complete subscription support requires a backend to call GooglePlay servers to confirm and update purchase status based on developer needs.
+
+### Amazon Store
+- [ ] Auto-Renewable Subscriptions
+- [ ] Non-Renewing Subscriptions
+- [ ] Consumables
+- [x] Non-Consumables
 
 ## Requirements
 
@@ -41,7 +49,7 @@ Add `https://github.com/Fantamstick/hermes-iap/Assets/Hermes` from the Package M
 or locate `manifest.json` in your Unity project's `Packages` folder and add the following dependencies:
 ```
 "dependencies": {
-  "com.fantamstick.hermesiap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#3.0",
+  "com.fantamstick.hermesiap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#3.0.1",
   ...
 }
 ```
@@ -52,7 +60,8 @@ After setting up the IAP settings on AppStoreConnect and/or GooglePlay, purchase
 
 ## Defines
 
-Use `DEBUG_IAP` for useful debug information logging during development.
+- `DEBUG_IAP` for useful debug information logging during development.
+- `UNITY_PURCHASING` *required* for Android builds.
 
 # License
 
