@@ -45,6 +45,8 @@ namespace Hermes {
         /// Callback for when restore is completed.
         /// </summary>
         Action<PurchaseResponse> onRestored;
+
+        bool deferPurchaseCompatible;
         
         //*******************************************************************
         // Instantiation
@@ -114,6 +116,8 @@ namespace Hermes {
                 builder.AddProduct(key, iapBuilder.Products[key]);
             }
 
+            deferPurchaseCompatible = iapBuilder.DeferredPurchaseCompatible;
+            
             onInitDone = onDone;
             UnityPurchasing.Initialize(this, builder);
         }
@@ -124,10 +128,12 @@ namespace Hermes {
             initStatus = InitStatus.Ok;
 
             // Notify callback for when purchases are deferred to a parent.
-            apple.RegisterPurchaseDeferredListener(product => {
-                Debug.Log("Purchase request deferred to parent.");
-                OnPurchaseDeferred?.Invoke(product);
-            });
+            if (deferPurchaseCompatible) {
+                apple.RegisterPurchaseDeferredListener(product => {
+                    Debug.Log("Purchase request deferred to parent.");
+                    OnPurchaseDeferred?.Invoke(product);
+                });
+            }
 
             Debug.Log("IAP Manager successfully initialized");
 

@@ -20,7 +20,11 @@ namespace Hermes {
         /// Google tangle data for IAP receipt validation.
         /// </summary>
         public byte[] GoogleTangleData { get; set; }
-    
+        /// <summary>
+        /// Support deferred purchases.
+        /// </summary>
+        public bool DeferredPurchaseCompatible { get; set; }
+        
         public IAPBuilder(Dictionary<string, ProductType> products) {
             this.Products = products;
         }
@@ -46,6 +50,15 @@ namespace Hermes {
         /// </summary>
         public static IAPBuilder WithPurchasingModule(this IAPBuilder builder, IPurchasingModule module) {
             builder.PurchasingModule = module;
+            return builder;
+        }
+
+        /// <summary>
+        /// Support deferred purchases.
+        /// Register to `OnPurchaseDeferred` callback to listen.
+        /// </summary>
+        public static IAPBuilder WithDeferredPurchaseCompatibility(this IAPBuilder builder) {
+            builder.DeferredPurchaseCompatible = true;
             return builder;
         }
     }
