@@ -1,4 +1,4 @@
-![](https://img.shields.io/badge/version-v3.0.1-green)
+![](https://img.shields.io/badge/version-v3.1.0-green)
 # Hermes IAP
 
 IAP manager package for Unity. Makes use of local receipt validation as specified in [Unity's  documentation](https://docs.unity3d.com/Manual/UnityIAPValidatingReceipts.html).
@@ -19,7 +19,7 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 - [ ] Upgrade / Downgrade
 - [ ] Google Play Developer API
 - [ ] Confirm price changes for subscriptions
-- [ ] Deferred Purchases
+- [x] Deferred Purchases (untested)
 
 *1: Partial support means subscriptions are confirmed on purchase, but subsequent subscription cancellations or updates are not automatically done. Complete subscription support requires a backend to call GooglePlay servers to confirm and update purchase status based on developer needs.
 
