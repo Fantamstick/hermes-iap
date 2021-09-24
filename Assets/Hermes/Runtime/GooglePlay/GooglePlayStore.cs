@@ -58,6 +58,20 @@ namespace Hermes {
         /// <summary>
         /// Initialize Hermes IAP.
         /// </summary>
+        /// <param name="builder">Builder data used to create instance.</param>
+        public async UniTask<InitStatus> InitAsync(IAPBuilder builder) {
+            // initialize.
+            Init(builder, _ => {});
+    
+            // wait until complete.
+            await UniTask.WaitWhile(() => onInitDone != null);
+
+            return initStatus;
+        }
+
+        /// <summary>
+        /// Initialize Hermes IAP.
+        /// </summary>
         /// <param name="iapBuilder">Builder data used to create instance.</param>
         /// <param name="onDone">Callback when initialization is done.</param>
         public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone) {
@@ -67,7 +81,7 @@ namespace Hermes {
             }
 
             if (onInitDone != null) {
-                Debug.LogError("Hermes is already in the process of initializing.");
+                Debug.LogWarning("Hermes is already in the process of initializing.");
                 return;
             }
 
@@ -149,7 +163,7 @@ namespace Hermes {
 
         /// <summary>
         /// Get subscription expiration date.
-        /// todo: [GooglePlay] Not compatible with Google Play Developer API. This method don't get the real expired date.
+        /// todo: [GooglePlay] Not compatible with Google Play Developer API. This method doesn't get the real expired date.
         /// </summary>
         /// <param name="productId">Product ID</param>
         /// <param name="nextExpiredHours">next expired datetime. default: 24h </param>

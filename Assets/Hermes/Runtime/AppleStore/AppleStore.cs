@@ -30,12 +30,7 @@ namespace Hermes {
         Action<InitStatus> onInitDone;
         IStoreController storeController;
         byte[] appleTangleData;
-        
-        /// <summary>
-        /// Callback for when restore is completed.
-        /// </summary>
-        public Action<PurchaseResponse> onRestored;
-        
+
         /// <summary>
         /// Result of product purchase or restore.
         /// </summary>
@@ -46,6 +41,11 @@ namespace Hermes {
         /// </summary>
         public event Action<Product> OnPurchaseDeferred;
 
+        /// <summary>
+        /// Callback for when restore is completed.
+        /// </summary>
+        Action<PurchaseResponse> onRestored;
+        
         //*******************************************************************
         // Instantiation
         //*******************************************************************
@@ -68,6 +68,20 @@ namespace Hermes {
         /// <summary>
         /// Initialize Hermes IAP.
         /// </summary>
+        /// <param name="builder">Builder data used to create instance.</param>
+        public async UniTask<InitStatus> InitAsync(IAPBuilder builder) {
+            // initialize.
+            Init(builder, _ => {});
+    
+            // wait until complete.
+            await UniTask.WaitWhile(() => onInitDone != null);
+
+            return initStatus;
+        }
+
+        /// <summary>
+        /// Initialize Hermes IAP.
+        /// </summary>
         /// <param name="iapBuilder">Builder data used to create instance.</param>
         /// <param name="onDone">Callback when initialization is done.</param>
         public void Init(IAPBuilder iapBuilder, Action<InitStatus> onDone) {
@@ -77,7 +91,7 @@ namespace Hermes {
             }
 
             if (onInitDone != null) {
-                Debug.LogError("Hermes is already in the process of initializing.");
+                Debug.LogWarning("Hermes is already in the process of initializing.");
                 return;
             }
             
@@ -88,6 +102,7 @@ namespace Hermes {
             // Verify if purchases are possible on this iOS device.
             var canMakePayments = builder.Configure<IAppleConfiguration>().canMakePayments;
             if (!canMakePayments) {
+                initStatus = InitStatus.PurchasingDisabled;
                 onDone(InitStatus.PurchasingDisabled);
                 return;
             }
@@ -241,8 +256,7 @@ namespace Hermes {
                 .Select(s => s.getExpireDate())
                 .OrderBy(date => date.Ticks)
                 .LastOrDefault();
-
-
+            
             return UniTask.FromResult(mostRecentExpiration);
         }
         
@@ -404,6 +418,7 @@ namespace Hermes {
         /// Restore purchases
         /// (GooglePlay is automatic after Init)
         /// </summary>
+        /// <returns>Refresh process successfully</returns>
         public void RestorePurchases(int timeoutMs, Action<PurchaseResponse> onDone) {
             if (!IsInit) {
                 Debug.LogWarning("Cannot restore purchases. IAPManager not successfully initialized!");
@@ -480,8 +495,30 @@ namespace Hermes {
         // REFRESH
         //*******************************************************************
         /// <summary>
+        /// Refresh purchases asynchronously
+        /// </summary>
+        public async UniTask<bool> RefreshPurchasesAsync() {
+            if (!IsInit)
+                return false;
+
+            bool? refreshResult = null;
+            RefreshPurchases(OnRefreshed);
+        
+            // wait until purchase complete.
+            await UniTask.WaitUntil(() => refreshResult.HasValue);
+        
+            return refreshResult.Value;
+
+        
+            void OnRefreshed(bool isSuccessful) {
+                refreshResult = isSuccessful;
+            }
+        }
+        
+        /// <summary>
         /// Refresh purchases
         /// </summary>
+        /// <returns>Refresh process successfully</returns>
         public void RefreshPurchases(Action<bool> onDone = null) {
             if (!IsInit) {
                 Debug.LogError("Cannot refresh purchases. IAPManager not successfully initialized!");
