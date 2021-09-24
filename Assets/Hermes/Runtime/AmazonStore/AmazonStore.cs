@@ -75,6 +75,11 @@ namespace Hermes {
                 return;
             }
             
+            if (iapBuilder.DeferredPurchaseCompatible) {
+                Debug.LogError("Amazon store does not support deferred purchases");
+                return;
+            }
+            
             googleTangleData = iapBuilder.GoogleTangleData ?? null;
             
             var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
@@ -84,7 +89,7 @@ namespace Hermes {
             foreach (var key in iapBuilder.Products.Keys) {
                 builder.AddProduct(key, iapBuilder.Products[key]);
             }
-    
+
             onInitDone = onDone;
 
             UnityPurchasing.Initialize(this, builder);

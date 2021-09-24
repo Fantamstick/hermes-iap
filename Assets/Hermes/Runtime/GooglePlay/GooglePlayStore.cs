@@ -35,12 +35,19 @@ namespace Hermes {
         /// Result of product purchase.
         /// </summary>
         public event Action<PurchaseResponse, Product> OnPurchased;
-
+        
+        /// <summary>
+        /// Purchase request was deferred to parent.
+        /// </summary>
+        public event Action<Product> OnPurchaseDeferred;
+        
         /// <summary>
         /// Has Hermes successfully initialized?
         /// </summary>
         public bool IsInit => initStatus == InitStatus.Ok;
 
+        bool deferPurchaseCompatible;
+        
         //*******************************************************************
         // Instantiation
         //*******************************************************************
@@ -95,6 +102,8 @@ namespace Hermes {
                 builder.AddProduct(key, iapBuilder.Products[key]);
             }
 
+            deferPurchaseCompatible = iapBuilder.DeferredPurchaseCompatible;
+            
             onInitDone = onDone;
             UnityPurchasing.Initialize(this, builder);
         }
@@ -104,6 +113,20 @@ namespace Hermes {
             
             storeController = controller;
             googlePlay = extensions.GetExtension<Google.Play.Billing.IGooglePlayStoreExtensions>();
+
+            if (deferPurchaseCompatible) {
+                // enable deferred purchases
+                IPurchasingModule googlePlayModule = Google.Play.Billing.GooglePlayStoreModule.Instance();
+                var configurationBuilder = ConfigurationBuilder.Instance(googlePlayModule);
+                configurationBuilder.Configure<Google.Play.Billing.IGooglePlayConfiguration>().EnableDeferredPurchase();
+
+                // Notify callback for when purchases are deferred to a parent.
+                googlePlay.SetDeferredPurchaseListener(product => {
+                    Debug.Log("Purchase request deferred to parent.");
+                    OnPurchaseDeferred?.Invoke(product);
+                });
+            }
+            
             initStatus = InitStatus.Ok;
 
             onInitDone(initStatus);
