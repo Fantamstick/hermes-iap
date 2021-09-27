@@ -118,7 +118,7 @@ public class PurchaseTestScene : MonoBehaviour
             AppendText($"Restore attempt, {resp} from product");
         });
         
-        OnClickGetExpiration();
+        await OnClickGetExpiration();
 #else
         // simulate restore wait period.
         await UniTask.Delay(TimeSpan.FromSeconds(1));
