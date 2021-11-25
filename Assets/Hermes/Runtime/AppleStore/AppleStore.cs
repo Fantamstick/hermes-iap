@@ -176,6 +176,11 @@ namespace Hermes {
         /// <param name="productID">Product's ID</param>
         /// <returns>Product information.</returns>
         public Product GetProduct(string productID) {
+            if (storeController == null) {
+                Debug.LogWarning($"IAP not initialized correctly.");
+                return null;
+            }
+            
             var product = storeController.products.WithID(productID);
             if (product == null) {
                 Debug.LogWarning($"{productID} is not a valid Product ID.");
