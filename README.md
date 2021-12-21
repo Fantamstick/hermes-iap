@@ -7,14 +7,14 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 
 ### iOS
 - [x] Auto-Renewable Subscriptions
-- [x] Non-Renewing Subscriptions
+- [ ] Non-Renewing Subscriptions
 - [x] Consumables
 - [x] Non-Consumables
 - [x] Deferred Purchases (iOS)
 
 ### Google Play
 - [x] Auto-Renewable Subscriptions (Partial support) *1
-- [x] Non-Renewing Subscriptions (Partial support) *1
+- [ ] Non-Renewing Subscriptions
 - [x] Non-Consumables
 - [ ] Upgrade / Downgrade
 - [ ] Google Play Developer API

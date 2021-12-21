@@ -101,15 +101,14 @@ namespace Hermes {
             var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
             var builder = ConfigurationBuilder.Instance(module);
 
+            appleConfig = builder.Configure<IAppleConfiguration>();
+            
             // Verify if purchases are possible on this iOS device.
-            var canMakePayments = builder.Configure<IAppleConfiguration>().canMakePayments;
-            if (!canMakePayments) {
+            if (!appleConfig.canMakePayments) {
                 initStatus = InitStatus.PurchasingDisabled;
                 onDone(InitStatus.PurchasingDisabled);
                 return;
             }
-
-            appleConfig = builder.Configure<IAppleConfiguration>();
 
             // Add Products to store.
             foreach (var key in iapBuilder.Products.Keys) {
@@ -130,12 +129,12 @@ namespace Hermes {
             // Notify callback for when purchases are deferred to a parent.
             if (deferPurchaseCompatible) {
                 apple.RegisterPurchaseDeferredListener(product => {
-                    Debug.Log("Purchase request deferred to parent.");
+                    DebugLog("Purchase request deferred to parent.");
                     OnPurchaseDeferred?.Invoke(product);
                 });
             }
 
-            Debug.Log("IAP Manager successfully initialized");
+            DebugLog("IAP Manager successfully initialized");
 
             onInitDone(initStatus);
             onInitDone = null;
@@ -172,25 +171,85 @@ namespace Hermes {
         // SUBSCRIPTION
         //*******************************************************************
         /// <summary>
-        /// Is specified subscription active.
+        /// Get the Product from the product's ID as registered from the platform's store.
         /// </summary>
-        /// <param name="productId">Product id.</param>
-        public async UniTask<bool> IsActiveSubscription(string productId) {
-            var expireDate = await GetSubscriptionExpiration(productId);
-            if (!expireDate.HasValue) {
-                Debug.Log($"{productId} has no expiration date.");
-                return false;
+        /// <param name="productID">Product's ID</param>
+        /// <returns>Product information.</returns>
+        public Product GetProduct(string productID) {
+            if (storeController == null) {
+                Debug.LogWarning($"IAP not initialized correctly.");
+                return null;
             }
             
-            // instance is later than now
-            DateTime nowUtc = DateTime.Now.ToUniversalTime();
-            bool isActive = expireDate.Value.CompareTo(nowUtc) > 0;
-            if (!isActive) {
-                Debug.Log($"{expireDate.Value} is already past {nowUtc}");
-                return false;
+            var product = storeController.products.WithID(productID);
+            if (product == null) {
+                Debug.LogWarning($"{productID} is not a valid Product ID.");
+                return null;
             }
 
-            return true;
+            return product;
+        }
+        
+        /// <summary>
+        /// Get most recent auto-renewable subscription information from the product ID as registered in the platform's store.
+        /// </summary>
+        /// <param name="productID">Product ID</param>
+        /// <returns>Subscription information.</returns>
+        public SubscriptionInfo GetSubscriptionInfo(string productID) {
+            var product = GetProduct(productID);
+            if (product == null) 
+                return null;
+            
+            Dictionary<string, string> introDict = apple.GetIntroductoryPriceDictionary();
+            
+            var introJSON = storeController.products.all
+                .Where(p => p.hasReceipt && introDict.ContainsKey(p.definition.storeSpecificId))
+                .Select(p => introDict[p.definition.storeSpecificId])
+                .FirstOrDefault();
+
+            var subscriptionManager = new SubscriptionManager(product, introJSON);
+
+            try {
+                var subInfo = subscriptionManager.getSubscriptionInfo();
+                if (subInfo != null && subInfo.isAutoRenewing() == Result.Unsupported) {
+                    // check for correct subscription type.
+                    Debug.LogError("Hermes does not support non-renewable subscriptions.");
+                    return null;
+                }
+
+                return subInfo;
+            } catch (Exception e) {
+                DebugLog($"Unable to acquire subscription info: {e.Message}");
+                return null;
+            }
+        }
+        
+        /// <summary>
+        /// Get auto-renewable subscription expiration date.
+        /// </summary>
+        /// <param name="productID">Product ID</param>
+        /// <returns>returns null if user has not purchased or product is invalid.</returns>
+        public async UniTask<DateTime?> GetSubscriptionExpiration(string productID) {
+            var expirationDate = GetSubscriptionInfo(productID)?.getExpireDate();
+            
+            return await UniTask.FromResult(expirationDate);
+        }
+        
+        public bool IsPurchasedProduct(Product product) {
+            return product.hasReceipt;
+        }
+        
+        /// <summary>
+        /// Is auto-renewable subscription's active.
+        /// </summary>
+        /// <param name="productId">Product ID.</param>
+        /// <returns>returns true if the store receipt's expiration date is after the device's current time</returns>
+        public async UniTask<bool> IsActiveSubscription(string productId) {
+            var subInfo = GetSubscriptionInfo(productId);
+
+            return subInfo != null ? 
+                await UniTask.FromResult(subInfo.isSubscribed() == Result.True) : 
+                await UniTask.FromResult(false);
         }
 
         /// <summary>
@@ -250,66 +309,26 @@ namespace Hermes {
 
             return UniTask.FromResult(offer);
         }
-        
-        /// <summary>
-        /// Get subscription expiration date.
-        /// </summary>
-        /// <param name="productId">Product ID</param>
-        /// <returns>Expiration date. Null if already expired</returns>
-        public UniTask<DateTime?> GetSubscriptionExpiration(string productId) {
-            // get most recent subscription
-            var mostRecentExpiration = GetPurchasedSubscriptions(productId)?
-                .Select(s => s.getExpireDate())
-                .OrderBy(date => date.Ticks)
-                .LastOrDefault();
-            
-            return UniTask.FromResult(mostRecentExpiration);
-        }
-        
-        public SubscriptionInfo[] GetPurchasedSubscriptions(string productId) {
-            var products = GetAvailableProducts().Where(p => 
-                p.definition.id == productId &&
-                p.definition.type == ProductType.Subscription &&
-                p.hasReceipt
-            ).ToArray();
-
-            if (products == null || products.Length == 0) {
-                Debug.LogWarning($"Product id: {productId} does not exist, is not a subscription, or does not have receipt!");
-                return null;
-            }
-
-            var subscriptions = products
-                .Select(p => new SubscriptionManager(p, null).getSubscriptionInfo())
-                .ToArray();
-            
-            if (subscriptions == null || subscriptions.Length == 0) {
-                Debug.LogWarning($"Subscription with product id {productId} is not a valid subscription product id.");
-                return null;
-            }
-
-            return subscriptions;
-        }
 
         //*******************************************************************
         // PURCHASE
         //*******************************************************************
         /// <summary>
         /// Try to Purchase a product
+        /// <param name="productID">Product ID</param>
         /// </summary>
-        public PurchaseRequest PurchaseProduct(string productId) {
+        public PurchaseRequest PurchaseProduct(string productID) {
             if (!IsInit) {
                 Debug.LogWarning("Cannot purchase product. IAPManager not successfully initialized!");
                 return PurchaseRequest.NoInit;
             }
 
-            var product = storeController.products.WithID(productId);
-            if (product == null) {
-                Debug.LogWarning("Cannot purchase product. Not found!");
+            var product = GetProduct(productID);
+            if (product == null) 
                 return PurchaseRequest.ProductUnavailable;
-            }
 
             if (!product.availableToPurchase) {
-                Debug.LogWarning("Cannot purchase product. Not available for purchase!");
+                Debug.LogWarning($"Cannot purchase product {productID}. Not available for purchase.");
                 return PurchaseRequest.PurchasingUnavailable;
             }
 
@@ -320,9 +339,8 @@ namespace Hermes {
         }
 
         PurchaseProcessingResult IStoreListener.ProcessPurchase(PurchaseEventArgs e) {
-#if DEBUG_IAP
-            Debug.Log("Processing a purchase");
-#endif
+            DebugLog("Processing a purchase");
+            
             // receipt validation tangle data not available.
             if (appleTangleData == null) {
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
@@ -350,7 +368,7 @@ namespace Hermes {
                     sb.Append($"\n  Cancellation Date: {receipts.cancellationDate}");
                     sb.Append($"\n  Subsc Expiration Date: {receipts.subscriptionExpirationDate}");
                     sb.Append($"\n  Free trial: {receipts.isFreeTrial}");
-                    Debug.Log(sb);
+                    DebugLog(sb);
                 }
 #endif
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
@@ -413,6 +431,7 @@ namespace Hermes {
                 Debug.LogWarning("Cannot get products. IAPManager not successfully initialized!");
                 return null;
             }
+            
             // only return all products that are available for purchase.
             return storeController.products.all.Where(p => p.availableToPurchase).ToArray();
         }
@@ -438,10 +457,10 @@ namespace Hermes {
                 // still waiting for result.
                 if (onRestored != null) {
                     if (result) {
-                        Debug.Log("Waiting for restore...");
+                        DebugLog("Waiting for restore...");
                         WaitForRestorePurchases(timeoutMs);
                     } else {
-                        Debug.Log("Restore process rejected.");
+                        DebugLog("Restore process rejected.");
                         onDone(PurchaseResponse.Unknown);
                         onRestored = null;
                     }
@@ -458,7 +477,7 @@ namespace Hermes {
             }
 
             if (IsTimeout() && onRestored != null) {
-                Debug.Log("Restore timeout");
+                DebugLog("Restore timeout");
                 onRestored(PurchaseResponse.Timeout);
                 onRestored = null;
             }
@@ -527,17 +546,27 @@ namespace Hermes {
         /// <returns>Refresh process successfully</returns>
         public void RefreshPurchases(Action<bool> onDone = null) {
             if (!IsInit) {
-                Debug.LogError("Cannot refresh purchases. IAPManager not successfully initialized!");
+                Debug.LogWarning("Cannot refresh purchases. IAPManager not successfully initialized!");
                 return;
             }
 
             apple.RefreshAppReceipt(successCallback: (success) => {
-                Debug.Log("Successfully refreshed purchases");
+                DebugLog("Successfully refreshed purchases");
                 onDone?.Invoke(true);
             }, errorCallback: () => {
-                Debug.Log("Refreshed purchase error");
+                DebugLog("Refreshed purchase error");
                 onDone?.Invoke(false);
             });
+        }
+        
+        /// <summary>
+        /// Print debug log (when DEBUG_IAP define is active)
+        /// </summary>
+        /// <param name="text">the data to be output.</param>
+        static void DebugLog(object text) {
+#if DEBUG_IAP
+            Debug.Log(text);
+#endif
         }
     }
 }

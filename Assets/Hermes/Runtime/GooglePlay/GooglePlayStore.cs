@@ -93,10 +93,9 @@ namespace Hermes {
             }
 
             googleTangleData = iapBuilder.GoogleTangleData ?? null;
-
             IPurchasingModule module = Google.Play.Billing.GooglePlayStoreModule.Instance();
             ConfigurationBuilder builder = ConfigurationBuilder.Instance(module);
-            
+
             // Add Products to store.
             foreach (var key in iapBuilder.Products.Keys) {
                 builder.AddProduct(key, iapBuilder.Products[key]);
@@ -109,7 +108,7 @@ namespace Hermes {
         }
         
         void IStoreListener.OnInitialized(IStoreController controller, IExtensionProvider extensions) {
-            Debug.Log("IAP Manager successfully initialized");
+            DebugLog("IAP Manager successfully initialized");
             
             storeController = controller;
             googlePlay = extensions.GetExtension<Google.Play.Billing.IGooglePlayStoreExtensions>();
@@ -122,11 +121,11 @@ namespace Hermes {
 
                 // Notify callback for when purchases are deferred to a parent.
                 googlePlay.SetDeferredPurchaseListener(product => {
-                    Debug.Log("Purchase request deferred to parent.");
+                    DebugLog("Purchase request deferred to parent.");
                     OnPurchaseDeferred?.Invoke(product);
                 });
             }
-            
+
             initStatus = InitStatus.Ok;
 
             onInitDone(initStatus);
@@ -141,8 +140,7 @@ namespace Hermes {
         void IStoreListener.OnInitializeFailed(InitializationFailureReason error) {
             Debug.LogWarning($"IAP init error: {error}");
 
-            switch (error)
-            {
+            switch (error) {
                 case InitializationFailureReason.AppNotKnown:
                     initStatus = InitStatus.AppNotKnown;
                     break;
@@ -165,19 +163,34 @@ namespace Hermes {
         // SUBSCRIPTION
         //*******************************************************************
         /// <summary>
+        /// Get the Product from the product's ID as registered from the platform's store.
+        /// </summary>
+        /// <param name="productID">Product's ID</param>
+        /// <returns>Product information.</returns>
+        public Product GetProduct(string productID) {
+            var product = storeController.products.WithID(productID);
+            if (product == null) {
+                Debug.LogWarning($"{productID} is not a valid Product ID.");
+                return null;
+            }
+
+            return product;
+        }
+
+        /// <summary>
         /// Is specified subscription active.
         /// </summary>
-        /// <param name="productId">Product id.</param>
-        public async UniTask<bool> IsActiveSubscription(string productId) {
-            Purchase[] purchases = await GetPurchasedSubscriptions(productId);
+        /// <param name="productID">Product ID.</param>
+        public async UniTask<bool> IsActiveSubscription(string productID) {
+            Purchase[] purchases = await GetPurchasedSubscriptions(productID);
             if (purchases == null || purchases.Length == 0) {
-                Debug.Log($"{productId} has no purchase information.");
+                DebugLog($"{productID} has no purchase information.");
                 return false;
             }
 
             Purchase purchase = purchases[0];
             if (purchase.TransactionId == null) {
-                Debug.Log($"{productId} has no purchase transactionId.");
+                DebugLog($"{productID} has no purchase transactionId.");
                 return false;
             }
             
@@ -185,14 +198,40 @@ namespace Hermes {
         }
 
         /// <summary>
+        /// Gets introductory offer details.
+        /// Includes Free Trial.
+        /// </summary>
+        /// <param name="productID">Product ID</param>
+        /// <returns>Offer details if exists.</returns>
+        public async UniTask<IntroductoryOffer> GetIntroductoryOfferDetailsAsync(string productID) {
+            Product[] products = await GetAvailableProductsAsync();
+            if (products == null || products.Length == 0) 
+                return null;
+
+            var availableProducts = products.Where(pd => !pd.hasReceipt).ToArray();
+            if (availableProducts == null || availableProducts.Length == 0 ) 
+                return null;
+            
+            Product[] p = availableProducts.Where(a => a.definition.id == productID).ToArray();
+            if (p.Length == 0) 
+                return null;
+
+            SkuDetails sku = GetSKU(productID);
+            if (sku == null) 
+                return null;
+            
+            return new GooglePlayIntroductoryOfferFactory(sku).Make();
+        }
+        
+        /// <summary>
         /// Get subscription expiration date.
         /// todo: [GooglePlay] Not compatible with Google Play Developer API. This method doesn't get the real expired date.
         /// </summary>
-        /// <param name="productId">Product ID</param>
+        /// <param name="productID">Product ID</param>
         /// <param name="nextExpiredHours">next expired datetime. default: 24h </param>
         /// <returns>Expiration datetime. Null if already expired</returns>
-        public async UniTask<DateTime?> GetSubscriptionExpiration(string productId, int nextExpiredHours = 24) {
-            if (await this.IsActiveSubscription(productId)) {
+        public async UniTask<DateTime?> GetSubscriptionExpiration(string productID, int nextExpiredHours = 24) {
+            if (await IsActiveSubscription(productID)) {
                 // existed receipt. return future date.
                 return DateTime.Now.AddHours(nextExpiredHours);
             }
@@ -203,18 +242,17 @@ namespace Hermes {
         /// <summary>
         /// Get subscription purchases by Google Play Billing Library:`BillingClient.queryPurchase()`
         /// </summary>
-        /// <param name="productId">productId. if NULL, then return all purchases.</param>
+        /// <param name="productID">productId. if NULL, then return all purchases.</param>
         /// <returns></returns>
-        public async UniTask<Purchase[]> GetPurchasedSubscriptions(string productId = null) {
-            List<Purchase> purchases = await new HermesGoogle.GoogleUtil().QueryPurchase();
-            if (purchases == null) {
+        public async UniTask<Purchase[]> GetPurchasedSubscriptions(string productID = null) {
+            List<Purchase> purchases = await new HermesGoogle.GoogleUtil().QueryPurchases();
+            if (purchases == null) 
                 return null;
-            }
-            if (productId == null) {
-                return purchases.ToArray();
-            }
             
-            return purchases.Where(p => p.ProductId == productId).ToArray();
+            if (productID == null) 
+                return purchases.ToArray();
+            
+            return purchases.Where(p => p.ProductId == productID).ToArray();
         }
 
         public bool IsPurchasedProduct(Product product) {
@@ -226,13 +264,10 @@ namespace Hermes {
         /// </summary>
         /// <param name="productId"></param>
         /// <returns></returns>
-        UniTask<Product[]> FetchSubscriptionPurchase(string productId) {
-            var utcs = new UniTaskCompletionSource<Product[]>();
+        async UniTask<Product[]> FetchSubscriptionPurchase(string productId) {
             if (!IsInit) {
                 Debug.LogWarning("Cannot fetch subscription. IAPManager not successfully initialized!");
-                utcs.TrySetException(
-                    new Exception("Cannot fetch subscription. IAPManager not successfully initialized!"));
-                return utcs.Task;
+                return null;
             }
 
             HashSet<ProductDefinition> additionalProducts = new HashSet<ProductDefinition>() {
@@ -240,52 +275,51 @@ namespace Hermes {
             };
             
             Product[] result = null;
-            OutDebugLog($"---FetchAdditionalProducts start!! productId = {productId}");
+            bool isWaiting = true;
+            DebugLog($"---FetchAdditionalProducts start!! productId = {productId}");
 
             storeController.FetchAdditionalProducts(additionalProducts, successCallback: () => {
-                OutDebugLog($"---FetchAdditionalProducts success!! productId = {productId}");
+                DebugLog($"---FetchAdditionalProducts success!! productId = {productId}");
                 result = storeController.products.all.Where(p => p.definition.id == productId).ToArray();
 #if DEBUG_IAP
                 StringBuilder sb = new StringBuilder();
-                foreach (var p in result)
-                {
+                foreach (var p in result) {
                     sb.Append("\n\n----------------\n");
-                    foreach (PropertyInfo property in p.GetType().GetProperties())
-                    {
+                    foreach (PropertyInfo property in p.GetType().GetProperties()) {
                         sb.Append(property.Name).Append("=").Append(property.GetValue(p)).Append("\n");
                     }
                 }
 
-                Debug.Log(sb);
+                DebugLog(sb);
 #endif
-                utcs.TrySetResult(result);
+                isWaiting = false;
             },
             (InitializationFailureReason reason) => {
-                OutDebugLog($"---FetchAdditionalProducts fail!! productId = {productId}");
-                Debug.LogError(reason);
-                utcs.TrySetResult(result);
+                DebugLog($"---FetchAdditionalProducts fail!! productId = {productId}");
+                DebugLog(reason);
+                isWaiting = false;
             });
+
+            await UniTask.WaitWhile(() => isWaiting);
             
-            return utcs.Task;
+            return result;
         }
         
         //*******************************************************************
         // PURCHASE
         //*******************************************************************
-        public PurchaseRequest PurchaseProduct(string productId) {
+        public PurchaseRequest PurchaseProduct(string productID) {
             if (!IsInit) {
                 Debug.LogWarning("Cannot purchase product. IAPManager not successfully initialized!");
                 return PurchaseRequest.NoInit;
             }
 
-            var product = storeController.products.WithID(productId);
-            if (product == null) {
-                Debug.LogWarning("Cannot purchase product. Not found!");
+            var product = GetProduct(productID);
+            if (product == null) 
                 return PurchaseRequest.ProductUnavailable;
-            }
 
             if (!product.availableToPurchase) {
-                Debug.LogWarning("Cannot purchase product. Not available for purchase!");
+                Debug.LogWarning($"Cannot purchase product {productID}. Not available for purchase!");
                 return PurchaseRequest.PurchasingUnavailable;
             }
 
@@ -296,21 +330,21 @@ namespace Hermes {
         }
 
         PurchaseProcessingResult IStoreListener.ProcessPurchase(PurchaseEventArgs e) {
-            OutDebugLog("Processing a purchase");
+            DebugLog("Processing a purchase");
             return ProcessGooglePurchase(e);
         }
         
         PurchaseProcessingResult ProcessGooglePurchase(PurchaseEventArgs e) {
             // receipt validation tangle data not available.
             if (googleTangleData == null) {
-                OutDebugLog($" ***** ProcessGooglePurchase   googleTangleData IS NULL");
+                DebugLog($" ***** ProcessGooglePurchase   googleTangleData IS NULL");
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
                 return PurchaseProcessingResult.Complete;
             }
 
             // validate receipt.
             try {
-                OutDebugLog($" ***** ProcessGooglePurchase   validate receipt.");
+                DebugLog($" ***** ProcessGooglePurchase   validate receipt.");
                 var validator = new CrossPlatformValidator(googleTangleData, null, Application.identifier);
                 // On Google Play, result has a single product ID.
                 // On Apple stores, receipts contain multiple products.
@@ -333,12 +367,12 @@ namespace Hermes {
                         sb.Append($"\n  Purchase Token: {googleReceipt.purchaseToken}");
                     }
 
-                    Debug.Log(sb);
+                    DebugLog(sb);
                 }
 #endif
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
             } catch (IAPSecurityException err) {
-                Debug.Log($"Invalid receipt or security exception: {err.Message}");
+                DebugLog($"Invalid receipt or security exception: {err.Message}");
                 OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
             }
 
@@ -397,7 +431,7 @@ namespace Hermes {
         /// Get all available products with RESTORE GooglePlay
         /// </summary>
         public async UniTask<Product[]> GetAvailableProductsAsync() {
-            OutDebugLog($"GetAvailableProductsAsync start");
+            DebugLog($"GetAvailableProductsAsync start");
             if (!IsInit) {
                 Debug.LogWarning("Cannot get products. IAPManager not successfully initialized!");
                 return null;
@@ -425,14 +459,14 @@ namespace Hermes {
             bool isProcessing = true;
 
             googlePlay.RestoreTransactions(result => {
-                Debug.Log($"googlePlay.RestoreTransactions result = {result}");
+                DebugLog($"googlePlay.RestoreTransactions result = {result}");
                 
                 // still waiting for result.
                 if (onDone != null) {
                     if (result) {
                         onDone(PurchaseResponse.Ok);
                     } else {
-                        Debug.Log("Restore process rejected.");
+                        DebugLog("Restore process rejected.");
                         onDone(PurchaseResponse.Unknown);
                     }
                 }
@@ -480,13 +514,13 @@ namespace Hermes {
         /// </summary>
         /// <returns>Dictionary key:productId / value:SKU json</returns>
         public Dictionary<string, string> GetSKUsJson() {
-            Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
+            Dictionary<string, string> SKUs = googlePlay.GetProductJSONDictionary();
 #if DEBUG_IAP
-            foreach (var pair in skus) {
-                OutDebugLog($"------- \n Key={pair.Key}\n Value={pair.Value}");
+            foreach (var pair in SKUs) {
+                DebugLog($"------- \n Key={pair.Key}\n Value={pair.Value}");
             }
 #endif
-            return skus;
+            return SKUs;
         }
 
         /// <summary>
@@ -494,17 +528,17 @@ namespace Hermes {
         /// </summary>
         /// <returns>Dictionary key:productId / value:SKU detail</returns>
         public Dictionary<string, SkuDetails> GetSKUs() {
-            Dictionary<string, string> skus = googlePlay.GetProductJSONDictionary();
-            Dictionary<string, SkuDetails> skuDetails = new Dictionary<string, SkuDetails>();
+            Dictionary<string, string> SKUs = googlePlay.GetProductJSONDictionary();
+            Dictionary<string, SkuDetails> SKUDetails = new Dictionary<string, SkuDetails>();
             
-            foreach (var pair in skus) {
+            foreach (var pair in SKUs) {
                 SkuDetails detail = new SkuDetails();
                 SkuDetails.FromJson(pair.Value, out detail);
-                skuDetails.Add(pair.Key, detail);
-                OutDebugLog($"------- \n pair.Key={pair.Key}\ndetail.JsonSkuDetails={detail.JsonSkuDetails}");
+                SKUDetails.Add(pair.Key, detail);
+                DebugLog($"------- \n pair.Key={pair.Key}\ndetail.JsonSkuDetails={detail.JsonSkuDetails}");
             }
 
-            return skuDetails;
+            return SKUDetails;
         }
 
         /// <summary>
@@ -513,58 +547,26 @@ namespace Hermes {
         /// <param name="productId">target product id</param>
         /// <returns></returns>
         public SkuDetails GetSKU(string productId) {
-            Dictionary<string, string> skus = this.GetSKUsJson();
-            string json = skus[productId];
-            if (json == null) {
+            Dictionary<string, string> SKUs = GetSKUsJson();
+            if (!SKUs.ContainsKey(productId)) {
+                DebugLog($"{productId} doesn't exist in SKU dictionary.");
                 return null;
             }
 
             SkuDetails detail = new SkuDetails();
-            SkuDetails.FromJson(json, out detail);
-            OutDebugLog(detail.JsonSkuDetails);
+            SkuDetails.FromJson(SKUs[productId], out detail);
+            DebugLog(detail.JsonSkuDetails);
             
             return detail;
         }
 
         /// <summary>
-        /// Gets introductory offer details.
-        /// Includes Free Trial.
+        /// Print debug log (when DEBUG_IAP define is active)
         /// </summary>
-        /// <param name="productID">Product ID</param>
-        /// <returns>Offer details if exists.</returns>
-        public async UniTask<IntroductoryOffer> GetIntroductoryOfferDetailsAsync(string productID) {
-            Product[] products = await this.GetAvailableProductsAsync();
-            if (products == null || products.Length == 0) {
-                return null;
-            }
-            
-            var availableProducts = products.Where(pd => !pd.hasReceipt).ToArray();
-            if (availableProducts == null || availableProducts.Length == 0 ) {
-                // can't purchase
-                return null;
-            }
-
-            Product[] p = availableProducts.Where(a => a.definition.id == productID).ToArray();
-            if (p.Length == 0) {
-                // can't purchase
-                return null;
-            }
-
-            SkuDetails sku = this.GetSKU(productID);
-            if (sku == null) {
-                return null;
-            }
-            
-            return new GooglePlayIntroductoryOfferFactory(sku).Make();
-        }
-
-        /// <summary>
-        /// Out Debug log (when DEBUG_IAP mode)
-        /// </summary>
-        /// <param name="o"></param>
-        void OutDebugLog(object o) {
+        /// <param name="text">the data to be output.</param>
+        static void DebugLog(object text) {
 #if DEBUG_IAP
-            Debug.Log(o);
+            Debug.Log(text);
 #endif
         }
     }
