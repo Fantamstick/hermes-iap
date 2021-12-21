@@ -4,6 +4,7 @@
 #define IOS
 #endif
 
+#if IOS
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,11 +43,17 @@ namespace Hermes {
         public event Action<Product> OnPurchaseDeferred;
 
         /// <summary>
+        /// System asked to purchase from promotional purchase.
+        /// </summary>
+        Func<Product, UniTask<bool>> onPromotionalPurchase;
+        
+        /// <summary>
         /// Callback for when restore is completed.
         /// </summary>
         Action<PurchaseResponse> onRestored;
 
         bool deferPurchaseCompatible;
+        bool promotionalPurchaseCompatible;
         
         //*******************************************************************
         // Instantiation
@@ -102,7 +109,7 @@ namespace Hermes {
             var builder = ConfigurationBuilder.Instance(module);
 
             appleConfig = builder.Configure<IAppleConfiguration>();
-            
+
             // Verify if purchases are possible on this iOS device.
             if (!appleConfig.canMakePayments) {
                 initStatus = InitStatus.PurchasingDisabled;
@@ -116,9 +123,36 @@ namespace Hermes {
             }
 
             deferPurchaseCompatible = iapBuilder.DeferredPurchaseCompatible;
+            promotionalPurchaseCompatible = iapBuilder.PromotionalPurchaseCompatible;
+            
+            if (promotionalPurchaseCompatible) {
+                appleConfig.SetApplePromotionalPurchaseInterceptorCallback(OnPromotionalPurchase);
+                onPromotionalPurchase = iapBuilder.OnPromotionalPurchase;
+            }
             
             onInitDone = onDone;
             UnityPurchasing.Initialize(this, builder);
+        }
+
+        /// <summary>
+        /// Callback called by IAP when a purchase is attempted from promotional purchase.
+        /// </summary>
+        void OnPromotionalPurchase(Product product) {
+            OnPromotionalPurchaseAsync(product).Forget();
+            
+            async UniTask OnPromotionalPurchaseAsync(Product p) {
+                while (!IsInit) {
+                    // wait for initialization before continuing.
+                    await UniTask.DelayFrame(1);
+                }
+                
+                // ask if user can purchase.
+                var continuePurchase = await onPromotionalPurchase(p);
+                if (continuePurchase) {
+                    // Continue promotional purchase process after promotional purchase callback.
+                    apple.ContinuePromotionalPurchases();
+                }
+            }
         }
 
         void IStoreListener.OnInitialized(IStoreController controller, IExtensionProvider extensions) {
@@ -132,6 +166,15 @@ namespace Hermes {
                     DebugLog("Purchase request deferred to parent.");
                     OnPurchaseDeferred?.Invoke(product);
                 });
+            }
+
+            if (promotionalPurchaseCompatible) {
+                foreach (var item in controller.products.all) {
+                    if (item.availableToPurchase) {                
+                        // Set all these products to be visible in the user's App Store
+                        apple.SetStorePromotionVisibility(item, AppleStorePromotionVisibility.Show);
+                    }
+                }
             }
 
             DebugLog("IAP Manager successfully initialized");
@@ -159,7 +202,7 @@ namespace Hermes {
                     initStatus = InitStatus.PurchasingUnavailable;
                     break;
                 default:
-                    initStatus = InitStatus.PurchasingUnavailable;
+                    initStatus = InitStatus.Unknown;
                     break;
             }
 
@@ -570,3 +613,4 @@ namespace Hermes {
         }
     }
 }
+#endif
