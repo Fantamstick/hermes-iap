@@ -101,6 +101,7 @@ namespace Hermes {
 
             if (onInitDone != null) {
                 Debug.LogWarning("Hermes is already in the process of initializing.");
+                onDone(InitStatus.Initializing);
                 return;
             }
             

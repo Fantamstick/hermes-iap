@@ -4,6 +4,7 @@
     /// </summary>
     public enum InitStatus {
         None,
+        Initializing,
         Ok,
         PurchasingDisabled,
         PurchasingUnavailable,
