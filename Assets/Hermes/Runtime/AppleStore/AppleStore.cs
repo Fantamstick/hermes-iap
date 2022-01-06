@@ -180,7 +180,7 @@ namespace Hermes {
 
             DebugLog("IAP Manager successfully initialized");
 
-            onInitDone(initStatus);
+            onInitDone?.Invoke(initStatus);
             onInitDone = null;
         }
 
@@ -207,7 +207,7 @@ namespace Hermes {
                     break;
             }
 
-            onInitDone(initStatus);
+            onInitDone?.Invoke(initStatus);
             onInitDone = null;
         }
     

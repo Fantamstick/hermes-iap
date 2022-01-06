@@ -102,7 +102,7 @@ namespace Hermes {
             amazon = extensions.GetExtension<IAmazonExtensions>();
             initStatus = InitStatus.Ok;
             
-            onInitDone(initStatus);
+            onInitDone?.Invoke(initStatus);
             onInitDone = null;
         }
     
@@ -128,7 +128,7 @@ namespace Hermes {
             }
 
             Debug.LogWarning($"IAP init error: {error}");
-            onInitDone(initStatus);
+            onInitDone?.Invoke(initStatus);
             onInitDone = null;
         }
     

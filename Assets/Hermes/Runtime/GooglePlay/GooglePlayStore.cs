@@ -128,7 +128,7 @@ namespace Hermes {
 
             initStatus = InitStatus.Ok;
 
-            onInitDone(initStatus);
+            onInitDone?.Invoke(initStatus);
             onInitDone = null;
         }
 
@@ -155,7 +155,9 @@ namespace Hermes {
                     break;
             }
 
-            onInitDone(initStatus);
+            // GooglePlay may re-initialize automatically. 
+            // OnInitDone callback may be unavailable.
+            onInitDone?.Invoke(initStatus);
             onInitDone = null;
         }
 
