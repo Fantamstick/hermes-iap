@@ -83,6 +83,7 @@ namespace Hermes {
             Init(builder, _ => {});
     
             // wait until complete.
+            await UniTask.DelayFrame(1);
             await UniTask.WaitWhile(() => onInitDone != null);
 
             return initStatus;
@@ -491,18 +492,21 @@ namespace Hermes {
         public void RestorePurchases(int timeoutMs, Action<PurchaseResponse> onDone) {
             if (!IsInit) {
                 Debug.LogWarning("Cannot restore purchases. IAPManager not successfully initialized!");
-                onDone(PurchaseResponse.NoInit);
+                onDone?.Invoke(PurchaseResponse.NoInit);
                 return;
             }
 
-            onRestored = onDone;
+            WaitForRestorePurchases(timeoutMs, onDone).Forget();
+        }
 
+        async UniTask WaitForRestorePurchases(int timeoutMs, Action<PurchaseResponse> onDone) {
+            onRestored = onDone;
+            
             apple.RestoreTransactions(result => {
                 // still waiting for result.
                 if (onRestored != null) {
                     if (result) {
                         DebugLog("Waiting for restore...");
-                        WaitForRestorePurchases(timeoutMs);
                     } else {
                         DebugLog("Restore process rejected.");
                         onDone(PurchaseResponse.Unknown);
@@ -510,9 +514,7 @@ namespace Hermes {
                     }
                 }
             });
-        }
-
-        async void WaitForRestorePurchases(int timeoutMs) {
+            
             int waitTime = 0;
             int waitFrame = 100;
             while (!IsTimeout() && onRestored != null) {

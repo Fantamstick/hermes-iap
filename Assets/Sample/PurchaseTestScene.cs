@@ -183,39 +183,33 @@ public class PurchaseTestScene : MonoBehaviour
             AppendText($"{productId} has {purchases.Length} purchases. {sb}");
         }
 #else
-        SubscriptionInfo[] receipts = IAP.Instance.GetPurchasedSubscriptions(productId);
-        if (receipts == null || receipts.Length == 0)
+        SubscriptionInfo receipt = IAP.Instance.GetSubscriptionInfo(productId);
+        if (receipt == null)
         {
             AppendText($"{productId} has no info");
         }
         else
         {
             StringBuilder sb = new StringBuilder();
-            int i = 0;
-            foreach (SubscriptionInfo info in receipts)
-            {
-                // https://docs.unity3d.com/ja/2019.4/Manual/UnityIAPSubscriptionProducts.html
-                sb.Append(i).Append(":");
-                sb.Append("getProductId=").Append(info.getProductId()).Append("\n");
-                sb.Append("getPurchaseDate=").Append(info.getPurchaseDate()).Append("\n");
-                sb.Append("isSubscribed=").Append(info.isSubscribed()).Append("\n");
-                sb.Append("getExpireDate=").Append(info.getExpireDate()).Append("\n");
-                sb.Append("isExpired=").Append(info.isExpired()).Append("\n");
-                sb.Append("getCancelDate=").Append(info.getCancelDate()).Append("\n");
-                sb.Append("isCancelled=").Append(info.isCancelled()).Append("\n");
-                //sb.Append("getRemainingTime=").Append(info.getRemainingTime()).Append("\n");
-                // sb.Append("getSkuDetails=").Append(info.getSkuDetails()).Append("\n");
-                // sb.Append("getSubscriptionPeriod=").Append(info.getSubscriptionPeriod()).Append("\n");
-                // sb.Append("isIntroductoryPricePeriod=").Append(info.isIntroductoryPricePeriod()).Append("\n");
-                
-                // 次の課金更新 あり/ なし
-                sb.Append("isAutoRenewing=").Append(info.isAutoRenewing()).Append("\n");
-                // sb.Append("getSubscriptionInfoJsonString=").Append(info.getSubscriptionInfoJsonString()).Append("\n");
-                i++;
-            }
-        
-            AppendText($"{productId} has {receipts.Length} info. {sb}");
-            Debug.Log($"{productId} has {receipts.Length} info. {sb}");
+
+            // https://docs.unity3d.com/ja/2019.4/Manual/UnityIAPSubscriptionProducts.html
+            sb.Append("getProductId=").Append(receipt.getProductId()).Append("\n");
+            sb.Append("getPurchaseDate=").Append(receipt.getPurchaseDate()).Append("\n");
+            sb.Append("isSubscribed=").Append(receipt.isSubscribed()).Append("\n");
+            sb.Append("getExpireDate=").Append(receipt.getExpireDate()).Append("\n");
+            sb.Append("isExpired=").Append(receipt.isExpired()).Append("\n");
+            sb.Append("getCancelDate=").Append(receipt.getCancelDate()).Append("\n");
+            sb.Append("isCancelled=").Append(receipt.isCancelled()).Append("\n");
+            //sb.Append("getRemainingTime=").Append(receipt.getRemainingTime()).Append("\n");
+            // sb.Append("getSkuDetails=").Append(receipt.getSkuDetails()).Append("\n");
+            // sb.Append("getSubscriptionPeriod=").Append(receipt.getSubscriptionPeriod()).Append("\n");
+            // sb.Append("isIntroductoryPricePeriod=").Append(receipt.isIntroductoryPricePeriod()).Append("\n");
+            
+            // 次の課金更新 あり/ なし
+            sb.Append("isAutoRenewing=").Append(receipt.isAutoRenewing()).Append("\n");
+            // sb.Append("getSubscriptionInfoJsonString=").Append(receipt.getSubscriptionInfoJsonString()).Append("\n");
+            
+            Debug.Log($"{productId} info. {sb}");
         }
 #endif
     }
