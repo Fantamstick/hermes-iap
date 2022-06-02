@@ -346,10 +346,12 @@ namespace Google.Play.Billing
                 callback.Invoke(false);
                 return;
             }
+
             var inAppPurchasesResult = _billingClient.Call<AndroidJavaObject>(Constants.QueryPurchasesMethod,
                 SkuType.InApp.ToString());
             var subsPurchasesResult = _billingClient.Call<AndroidJavaObject>(Constants.QueryPurchasesMethod,
                 SkuType.Subs.ToString());
+
             if (_jniUtils.GetResponseCodeFromQueryPurchasesResult(inAppPurchasesResult) !=
                 BillingResponseCode.Ok ||
                 _jniUtils.GetResponseCodeFromQueryPurchasesResult(subsPurchasesResult) != BillingResponseCode.Ok)
@@ -361,15 +363,11 @@ namespace Google.Play.Billing
             var allPurchases = _jniUtils.ParseQueryPurchasesResult(inAppPurchasesResult)
                 .Concat(_jniUtils.ParseQueryPurchasesResult(subsPurchasesResult))
                 .ToList();
+
             _inventory.UpdatePurchaseInventory(allPurchases);
-            _billingUtil.RunOnMainThread( () =>
-            {
-                _callback.OnProductsRetrieved(_inventory.CreateProductDescriptionList());
-            });
             _billingUtil.RunOnMainThread(() =>
-            {
-                callback.Invoke(true);
-            });
+                _callback.OnProductsRetrieved(_inventory.CreateProductDescriptionList()));
+            _billingUtil.RunOnMainThread(() => callback.Invoke(true));
         }
 
         public void FinishAdditionalTransaction(string productId, string transactionId)
@@ -718,7 +716,6 @@ namespace Google.Play.Billing
                 case ProductType.NonConsumable:
                 case ProductType.Subscription:
                     // Skip calling acknowledgePurchase if it is already acknowledged.
-
                     if (purchase.Acknowledged)
                     {
                         return;

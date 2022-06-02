@@ -1,5 +1,25 @@
 # Changelog for com.google.play.billing
 
+## [3.2.3] - 2022-02-15
+### New Features
+- Incremented version number to match other packages
+
+## [3.2.2] - 2021-01-24
+### New features
+ - Incremented version number to match other packages
+
+## [3.2.1] - 2021-11-15
+### New features
+ - incremented version number to match other packages
+### Other
+ - Updated README and announced deprecation of this plugin
+
+## [3.2.0] - 2021-06-14
+### Bug Fixes
+ - Clarified documentation in GooglePlayStoreProrationMode
+### Other
+ - Removed ability to compile plugin with Unity 5.6, 2017.1, 2017.2, 2017.3, 2018.1, and 2018.2
+
 ## [3.1.2] - 2021-03-08
 ### New Features
  - Included Google Play Billing Libary [version 3.0.3](https://developer.android.com/google/play/billing/billing_library_releases_notes)

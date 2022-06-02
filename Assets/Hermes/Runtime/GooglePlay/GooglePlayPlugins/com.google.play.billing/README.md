@@ -1,6 +1,13 @@
-# Google Play Billing Plugin for Unity
+# [Deprecated] Google Play Billing Plugin for Unity
 
 *com.google.play.billing*
+
+## Note
+
+**The Google Play Billing Plugin for Unity will not be receiving updates going
+forward. This means that it will stay on Play Billing Library 3 and app updates
+past Nov 1, 2022 will no longer be able to use the plugin.**
+
 
 ## Overview
 
@@ -14,4 +21,6 @@ and the Google Play Billing Library. If you do not agree with the licenses, you
 may not use this package.
 
 Refer to the [documentation](//developer.android.com/google/play/billing/unity)
+and
+[Runtime API reference](//developer.android.com/reference/unity/namespace/Google/Play/Billing)
 for more information.
