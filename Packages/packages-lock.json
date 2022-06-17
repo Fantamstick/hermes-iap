@@ -7,6 +7,12 @@
       "dependencies": {},
       "hash": "60bfbae787b1aade3b7a2504999031d96996d7dd"
     },
+    "com.google.android.appbundle": {
+      "version": "file:../GooglePackages/com.google.android.appbundle-1.7.0.tgz",
+      "depth": 0,
+      "source": "local-tarball",
+      "dependencies": {}
+    },
     "com.unity.ext.nunit": {
       "version": "1.0.6",
       "depth": 1,
