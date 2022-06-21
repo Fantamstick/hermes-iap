@@ -26,6 +26,8 @@ namespace Hermes {
         /// Support deferred purchases.
         /// </summary>
         public bool DeferredPurchaseCompatible { get; set; }
+        public bool HasReceiptServer { get; set; }
+        public bool IsDebugLogEnabled { get; set; }
 #if UNITY_IOS
         /// <summary>
         /// Support for promotional purchases.
@@ -73,6 +75,19 @@ namespace Hermes {
         /// </summary>
         public static IAPBuilder WithDeferredPurchaseCompatibility(this IAPBuilder builder) {
             builder.DeferredPurchaseCompatible = true;
+            return builder;
+        }
+
+        /// <summary>
+        /// Receipt server support. Developer manages receipt validation and calls Hermes with result.
+        /// </summary>
+        public static IAPBuilder WithReceiptServer(this IAPBuilder builder) {
+            builder.HasReceiptServer = true;
+            return builder;
+        }
+
+        public static IAPBuilder WithDebugLog(this IAPBuilder builder) {
+            builder.IsDebugLogEnabled = true;
             return builder;
         }
         

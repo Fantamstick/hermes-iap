@@ -133,19 +133,6 @@ namespace Google.Android.AppBundle.Editor.Internal.AssetPacks
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.Space();
 
-            // Hide this setting for projects targeting SDK 21+ since it only affects install-time asset pack
-            // installation on older devices.
-            if (_assetDeliveryConfig.HasTextureCompressionFormatTargeting() &&
-                PlayerSettings.Android.minSdkVersion < AndroidSdkVersions.AndroidApiLevel21)
-            {
-                EditorGUILayout.LabelField("Texture Compression Configuration", EditorStyles.boldLabel);
-                EditorGUILayout.Space();
-
-                bool targetingUpdated;
-                RenderTextureCompressionFormatTargetingConfiguration(_assetDeliveryConfig, out targetingUpdated);
-                refreshAssetDeliveryConfig |= targetingUpdated;
-            }
-
             _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
 
             EditorGUILayout.LabelField("AssetBundle Folders", EditorStyles.boldLabel);

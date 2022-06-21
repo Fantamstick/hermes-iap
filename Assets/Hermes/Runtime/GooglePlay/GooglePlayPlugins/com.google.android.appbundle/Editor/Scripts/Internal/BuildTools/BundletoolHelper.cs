@@ -128,24 +128,6 @@ namespace Google.Android.AppBundle.Editor.Internal.BuildTools
                 });
             }
 
-            // Bundletool requires the below standaloneConfig when supporting install-time asset packs for pre-Lollipop.
-            if (configParams.containsInstallTimeAssetPack &&
-                configParams.minSdkVersion < AndroidSdkVersions.AndroidApiLevel21)
-            {
-                config.optimizations.standaloneConfig.splitDimension.Add(new BundletoolConfig.SplitDimension
-                    {value = BundletoolConfig.Abi, negate = true});
-
-                config.optimizations.standaloneConfig.splitDimension.Add(new BundletoolConfig.SplitDimension
-                    {value = BundletoolConfig.Language, negate = true});
-
-                config.optimizations.standaloneConfig.splitDimension.Add(new BundletoolConfig.SplitDimension
-                    {value = BundletoolConfig.ScreenDensity, negate = true});
-
-                config.optimizations.standaloneConfig.splitDimension.Add(new BundletoolConfig.SplitDimension
-                    {value = BundletoolConfig.TextureCompressionFormat, negate = true});
-
-                config.optimizations.standaloneConfig.strip64BitLibraries = true;
-            }
 
             return config;
         }
