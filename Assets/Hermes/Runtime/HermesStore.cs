@@ -31,7 +31,7 @@ public abstract class HermesStore : IStoreListener
     public bool IsInitAndReady => extensions != null;
 
     protected Status status = Status.Idle;
-    IStoreController controller;
+    protected IStoreController controller;
     protected IStoreExtension extensions;
     protected IStoreConfiguration configuration;
     ConfigurationBuilder builder;
@@ -259,7 +259,7 @@ public abstract class HermesStore : IStoreListener
             return null;
         }
     }
-    
+
     //*******************************************************************
     // RESTORE
     //*******************************************************************

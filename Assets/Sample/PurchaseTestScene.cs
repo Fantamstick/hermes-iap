@@ -294,7 +294,7 @@ public class PurchaseTestScene : MonoBehaviour
     //========================================================
     // GET INTRODUCTORY OFFER DETAILS
     //========================================================
-    /*public async void OnClickIntroOffer() {
+    public void OnClickIntroOffer() {
         string[] ids = new string[] {
             productId
         };
@@ -302,9 +302,9 @@ public class PurchaseTestScene : MonoBehaviour
         foreach (var id in ids) {
             AppendText($"--{id}");
 #if UNITY_ANDROID            
-            var offer = await Hermes.IAP.Instance.GetIntroductoryOfferDetailsAsync(id);
+            var offer = IAP.Instance.GetIntroductoryOfferDetails(id);
 #else
-            var offer = await Hermes.IAP.Instance.GetIntroductoryOfferDetailsAsync(id);
+            var offer = IAP.Instance.GetIntroductoryOfferDetails(id);
 #endif
             if (offer != null) {
                 
@@ -330,7 +330,7 @@ public class PurchaseTestScene : MonoBehaviour
             }
         }
 
-    }*/
+    }
 
     //========================================================
     // UTILITY

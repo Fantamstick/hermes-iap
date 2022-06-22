@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using Hermes;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
@@ -99,6 +102,74 @@ public class AppStore : HermesStore
         return PurchaseProcessingResult.Pending;
     }
 
+    /// <summary>
+    /// Gets introductory offer details.
+    /// Includes Free Trial.
+    /// </summary>
+    /// <param name="productID">Product ID</param>
+    /// <param name="groupProductIDs">Group products that productID belongs to.
+    /// If empty or null, assume productID is in its own group.</param>
+    /// <returns>Offer details if exists.</returns>
+    public IntroductoryOffer GetIntroductoryOfferDetailsAsync(string productID, string[] groupProductIDs = null) 
+    {
+        Dictionary<string,string> products = (extensions as IAppleExtensions).GetProductDetails();
+        
+        if (products == null || !products.ContainsKey(productID)) 
+        {
+            return null;
+        }
+
+        // Get product details.
+        IntroductoryOffer offer = null;
+        
+        try 
+        {
+            offer = new IOSIntroductoryOfferFactory(products[productID]).Make();
+        } 
+        catch (InvalidOfferException) 
+        {
+            return null;
+        } 
+        catch(Exception e) 
+        {
+            // Invalid JSON
+            Debug.LogWarning($"Invalid product data detected! {e.Message}");
+            return null;
+        }
+
+        try 
+        {
+            var receiptData = System.Convert.FromBase64String((configuration as IAppleConfiguration).appReceipt);
+            AppleReceipt receipt = new AppleValidator(tangleData).Validate(receiptData);
+            if (receipt == null || receipt.inAppPurchaseReceipts == null) 
+            {
+                // no previous subscription purchased. 
+                return offer;
+            }
+
+            if (groupProductIDs == null || groupProductIDs.Length == 0) 
+            {
+                groupProductIDs = new string[] {productID};
+            }
+            
+            var prevCampaignPurchase = receipt.inAppPurchaseReceipts
+                .FirstOrDefault(r => 
+                    groupProductIDs.Contains(r.productID) &&
+                    (r.isFreeTrial != 0 || r.isIntroductoryPricePeriod != 0));
+                
+            if(prevCampaignPurchase != null) 
+            {
+                // user already used free trial or introductory offer. 
+                return null;
+            }   
+        } catch {
+            // unable to validate receipt or unable to access.
+            return null;
+        }
+
+        return offer;
+    }
+    
     //*******************************************************************
     // REFRESH
     //*******************************************************************

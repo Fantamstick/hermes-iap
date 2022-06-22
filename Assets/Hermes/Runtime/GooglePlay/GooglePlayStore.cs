@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using System.Text;
+using Hermes;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
@@ -102,5 +104,30 @@ public class GooglePlayStore : HermesStore
         }
 
         return PurchaseProcessingResult.Pending;
+    }
+    
+    /// <summary>
+    /// Gets introductory offer details.
+    /// Includes Free Trial.
+    /// </summary>
+    /// <param name="productID">Product ID</param>
+    /// <returns>Offer details if exists.</returns>
+    public IntroductoryOffer GetIntroductoryOfferDetails(string productID) 
+    {
+        Product product = controller.products.all.FirstOrDefault(pd => !pd.hasReceipt && pd.definition.id == productID);
+
+        if (product == null) 
+        {
+            return null;
+        }
+
+        try 
+        {
+            return new GooglePlayIntroductoryOfferFactory(product.metadata.GetGoogleProductMetadata()).Make();
+        } 
+        catch 
+        {
+            return null;
+        }
     }
 }
