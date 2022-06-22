@@ -1,4 +1,4 @@
-#if UNITY_ANDROID
+/*#if UNITY_ANDROID
 using System.Text.RegularExpressions;
 using Google.Play.Billing.Internal;
 using UnityEngine;
@@ -153,4 +153,4 @@ namespace Hermes
         }
     }
 }
-#endif
+#endif*/
