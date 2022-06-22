@@ -124,7 +124,6 @@ namespace Hermes {
                 builder.AddProduct(key, iapBuilder.Products[key]);
             }
 
-            deferPurchaseCompatible = iapBuilder.DeferredPurchaseCompatible;
             promotionalPurchaseCompatible = iapBuilder.PromotionalPurchaseCompatible;
             
             if (promotionalPurchaseCompatible) {

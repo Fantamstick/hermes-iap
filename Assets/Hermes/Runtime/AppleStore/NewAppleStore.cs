@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Hermes;
@@ -14,11 +14,23 @@ public class NewAppleStore : IStoreListener {
 
     public enum Status {
         Idle,
+        /// <summary>
+        /// User is purchasing a product.
+        /// </summary>
         Purchase,
+        /// <summary>
+        /// User is restoring a product.
+        /// </summary>
         Restore,
+        /// <summary>
+        /// User is refreshing a product.
+        /// </summary>
         Refresh,
     }
     
+    /// <summary>
+    /// IAP initialized successfully and ready
+    /// </summary>
     public bool IsInitAndReady => appleExtensions != null;
 
     Status status = Status.Idle;
@@ -136,6 +148,18 @@ public class NewAppleStore : IStoreListener {
         // only return all products that are available for purchase.
         return controller.products.all.Where(p => p.availableToPurchase).ToArray();
     }
+
+    /// <summary>
+    /// Get product from product ID.
+    /// </summary>
+    public Product GetProduct(string productId) {
+        if (!IsInitAndReady) {
+            throw new InvalidOperationException("Cannot get product. IAPManager not successfully initialized.");
+        }
+            
+        // only return all products that are available for purchase.
+        return controller.products.all.FirstOrDefault(p => p.definition.storeSpecificId == productId);
+    }
     
     //*******************************************************************
     // PURCHASE
@@ -215,16 +239,17 @@ public class NewAppleStore : IStoreListener {
         onPurchaseFailureCb?.Invoke(status, failureReason);
     }
 
-    public void ConfirmPendingPurchase(Product product) {
+    public void ConfirmPendingPurchase(string productId) {
         if (!IsInitAndReady) {
             throw new InvalidOperationException("Unable to confirm purchase. Hermes is not initialized.");
         }
-        
-        if (!iapBuilder.HasReceiptServer) {
-            Debug.LogError("Invalid call! Receipt server isn't enabled. Use IAPBuilder.WithReceiptServer");
-            return;
-        }
 
+        Product product = GetProduct(productId);
+        if (product == null)
+        {
+            throw new InvalidDataException("Invalid Product ID");
+        }
+        
         controller.ConfirmPendingPurchase(product);
     }
     

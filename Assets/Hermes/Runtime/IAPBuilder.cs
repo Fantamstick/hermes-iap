@@ -22,11 +22,7 @@ namespace Hermes {
         /// Google tangle data for IAP receipt validation.
         /// </summary>
         public byte[] GoogleTangleData { get; set; }
-        /// <summary>
-        /// Support deferred purchases.
-        /// </summary>
-        public bool DeferredPurchaseCompatible { get; set; }
-        public bool HasReceiptServer { get; set; }
+        
         public bool IsDebugLogEnabled { get; set; }
 #if UNITY_IOS
         /// <summary>
@@ -66,23 +62,6 @@ namespace Hermes {
         /// </summary>
         public static IAPBuilder WithPurchasingModule(this IAPBuilder builder, IPurchasingModule module) {
             builder.PurchasingModule = module;
-            return builder;
-        }
-
-        /// <summary>
-        /// Support deferred purchases.
-        /// Register to `OnPurchaseDeferred` callback to listen.
-        /// </summary>
-        public static IAPBuilder WithDeferredPurchaseCompatibility(this IAPBuilder builder) {
-            builder.DeferredPurchaseCompatible = true;
-            return builder;
-        }
-
-        /// <summary>
-        /// Receipt server support. Developer manages receipt validation and calls Hermes with result.
-        /// </summary>
-        public static IAPBuilder WithReceiptServer(this IAPBuilder builder) {
-            builder.HasReceiptServer = true;
             return builder;
         }
 

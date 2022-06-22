@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
-using Cysharp.Threading.Tasks;
 using Hermes;
 using UnityEngine;
 using UnityEngine.Purchasing;
@@ -20,8 +19,10 @@ public class PurchaseTestScene : MonoBehaviour {
     [SerializeField] string AppleProductId;
     [Space(30)] [SerializeField] Text resultText;
     [SerializeField] Text productIdLabel;
-    readonly List<string> resultList = new();
-
+    [SerializeField] Toggle receiptValidateToggle;
+    readonly List<string> resultList = new List<string>();
+    bool isReceiptVerified = true;
+    
     string productId =>
 #if UNITY_ANDROID
         googlePlayProductId;
@@ -29,12 +30,14 @@ public class PurchaseTestScene : MonoBehaviour {
         AppleProductId;
 #endif
 
-    void Start() {
-#if UNITY_EDITOR
-        Debug.LogError("Test scene only works on devices!");
+    void Start() 
+    {
+#if UNITY_EDITOR || !(UNITY_IOS || UNITY_ANDROID)
+        Debug.LogError("Test scene only works on iOS or Android devices!");
 #endif
         OnClearTextClicked();
-
+        
+        receiptValidateToggle.onValueChanged.AddListener(OnReceiptVerificationToggled);
         productIdLabel.text = productId;
     }
 
@@ -44,10 +47,12 @@ public class PurchaseTestScene : MonoBehaviour {
     /// <summary>
     /// Initialization button clicked.
     /// </summary>
-    public void OnClickInit() {
+    public void OnClickInit() 
+    {
         AppendText("clicked init button, waiting for response...");
 
-        var products = new Dictionary<string, ProductType> {
+        var products = new Dictionary<string, ProductType> 
+        {
             {productId, ProductType.Subscription},
         };
         
@@ -55,7 +60,8 @@ public class PurchaseTestScene : MonoBehaviour {
             .WithDebugLog()
             .WithAppleTangleData(AppleTangle.Data());
 
-        try {
+        try 
+        {
             NewAppleStore.Instance.Init(
                 iapBuilder, 
                 OnInitSuccess, 
@@ -63,20 +69,25 @@ public class PurchaseTestScene : MonoBehaviour {
                 OnPurchaseSuccess, 
                 OnPurchaseDeferred,
                 OnPurchaseFailure);
-        } catch (InvalidOperationException e) {
+        } 
+        catch (InvalidOperationException e) 
+        {
             AppendText($"Unable to init: {e.Message}");
         }
     }
 
-    void OnInitSuccess() {
+    void OnInitSuccess() 
+    {
         AppendText($"init success");
     }
 
-    void OnInitFailure(InitializationFailureReason reason) {
+    void OnInitFailure(InitializationFailureReason reason) 
+    {
         AppendText($"init failure: {reason}");
     }
 
-    PurchaseProcessingResult OnPurchaseSuccess(NewAppleStore.Status status, Product product) {
+    PurchaseProcessingResult OnPurchaseSuccess(NewAppleStore.Status status, Product product) 
+    {
         AppendText($"purchase success during {status} for Product: {product.transactionID}. {product.definition.id}\n");
         
         StringBuilder sb = new StringBuilder();
@@ -85,9 +96,8 @@ public class PurchaseTestScene : MonoBehaviour {
         }
 
         AppendText(sb.ToString());
-        Debug.Log(sb);
         
-        return PurchaseProcessingResult.Complete;
+        return isReceiptVerified ? PurchaseProcessingResult.Complete : PurchaseProcessingResult.Pending;
     }
 
     void OnPurchaseDeferred(Product product) {
@@ -104,17 +114,32 @@ public class PurchaseTestScene : MonoBehaviour {
     /// <summary>
     /// Purchase button clicked.
     /// </summary>
-    public void OnClickPurchase()
-    {
+    public void OnClickPurchase() {
         AppendText("clicked purchase, waiting for response...");
 
         try {
-            IAP.Instance.PurchaseProduct(productId);
+            NewAppleStore.Instance.PurchaseProduct(productId);
         } catch (Exception e) {
-            AppendText($"problem with purchase: {e.Message}");
+            AppendText($"Problem with purchase: {e.Message}");
         }
     }
 
+    //========================================================
+    // PURCHASE
+    //========================================================
+    public void OnConfirmPurchase()
+    {
+        AppendText("clicked confirm purchase, waiting for response...");
+
+        try
+        {
+            NewAppleStore.Instance.ConfirmPendingPurchase(productId);
+        } 
+        catch (Exception e) {
+            AppendText($"Problem with confirming purchase: {e.Message}");
+        }
+    }
+    
     //========================================================
     // RESTORE
     //========================================================
@@ -136,12 +161,32 @@ public class PurchaseTestScene : MonoBehaviour {
     }
 
     //========================================================
+    // REFRESH
+    //========================================================
+    /// <summary>
+    /// Refresh button clicked.
+    /// </summary>
+    public void OnClickRefresh() {
+        AppendText("clicked refresh, waiting for response...");
+
+        try {
+            NewAppleStore.Instance.Refresh((receipt) => {
+                AppendText($"Refresh attempt success with receipt: {receipt}");
+            }, () => {
+                AppendText($"Refresh attempt failed");
+            });
+        } catch(Exception e) {
+            AppendText($"Refresh attempt failed, {e.Message}");
+        }
+    }
+    
+    //========================================================
     // GET EXPIRATION
     //========================================================
     /// <summary>
     /// Get expiration button clicked.
     /// </summary>
-    public async UniTask OnClickGetExpiration() {
+    public void OnClickGetExpiration() {
         AppendText("clicked get expiration, waiting for response...");
 
         try {
@@ -156,7 +201,7 @@ public class PurchaseTestScene : MonoBehaviour {
         }
     }
 
-    public async UniTask OnClickGetInfo() {
+    public void OnClickGetInfo() {
         AppendText("clicked GetInfo, waiting for response...");
 
         try {
@@ -218,6 +263,15 @@ public class PurchaseTestScene : MonoBehaviour {
     }
 
     //========================================================
+    // TOGGLE RECEIPT VERIFICATION SUCCESS
+    //========================================================
+    void OnReceiptVerificationToggled(bool isOn)
+    {
+        isReceiptVerified = isOn;
+        AppendText($"Auto receipt validation ON? {isOn}");
+    }
+    
+    //========================================================
     // GET INTRODUCTORY OFFER DETAILS
     //========================================================
     public async void OnClickIntroOffer() {
@@ -262,7 +316,7 @@ public class PurchaseTestScene : MonoBehaviour {
     // UTILITY
     //========================================================
     /// <summary>
-    /// Append text to log.
+    /// Append text to log on screen.
     /// </summary>
     void AppendText(string str = default) {
         if (!string.IsNullOrEmpty(str)) {
@@ -272,7 +326,7 @@ public class PurchaseTestScene : MonoBehaviour {
 
         resultText.text = "";
         foreach (var result in resultList) {
-            resultText.text += result + "\n";
+            resultText.text = result + "\n" + resultText.text;
         }
     }
 
