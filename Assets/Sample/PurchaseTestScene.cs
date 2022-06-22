@@ -7,14 +7,12 @@ using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Security;
 using UnityEngine.UI;
-#if UNITY_ANDROID
-using Google.Play.Billing.Internal;
-#endif
 
 /// <summary>
 /// Test scene for IAP.
 /// </summary>
-public class PurchaseTestScene : MonoBehaviour {
+public class PurchaseTestScene : MonoBehaviour 
+{
     [SerializeField] string googlePlayProductId;
     [SerializeField] string AppleProductId;
     [Space(30)] [SerializeField] Text resultText;
@@ -62,7 +60,7 @@ public class PurchaseTestScene : MonoBehaviour {
 
         try 
         {
-            NewAppleStore.Instance.Init(
+            IAP.Instance.Init(
                 iapBuilder, 
                 OnInitSuccess, 
                 OnInitFailure, 
@@ -86,7 +84,7 @@ public class PurchaseTestScene : MonoBehaviour {
         AppendText($"init failure: {reason}");
     }
 
-    PurchaseProcessingResult OnPurchaseSuccess(NewAppleStore.Status status, Product product) 
+    PurchaseProcessingResult OnPurchaseSuccess(AppStore.Status status, Product product) 
     {
         AppendText($"purchase success during {status} for Product: {product.transactionID}. {product.definition.id}\n");
         
@@ -100,11 +98,13 @@ public class PurchaseTestScene : MonoBehaviour {
         return isReceiptVerified ? PurchaseProcessingResult.Complete : PurchaseProcessingResult.Pending;
     }
 
-    void OnPurchaseDeferred(Product product) {
+    void OnPurchaseDeferred(Product product) 
+    {
         AppendText($"purchase deferred");
     }
 
-    void OnPurchaseFailure(NewAppleStore.Status status, PurchaseFailureReason reason) {
+    void OnPurchaseFailure(AppStore.Status status, PurchaseFailureReason reason) 
+    {
         AppendText($"purchase failure during {status}. Reason: {reason}");
     }
 
@@ -114,12 +114,16 @@ public class PurchaseTestScene : MonoBehaviour {
     /// <summary>
     /// Purchase button clicked.
     /// </summary>
-    public void OnClickPurchase() {
+    public void OnClickPurchase() 
+    {
         AppendText("clicked purchase, waiting for response...");
 
-        try {
-            NewAppleStore.Instance.PurchaseProduct(productId);
-        } catch (Exception e) {
+        try 
+        {
+            IAP.Instance.PurchaseProduct(productId);
+        } 
+        catch (Exception e) 
+        {
             AppendText($"Problem with purchase: {e.Message}");
         }
     }
@@ -133,9 +137,10 @@ public class PurchaseTestScene : MonoBehaviour {
 
         try
         {
-            NewAppleStore.Instance.ConfirmPendingPurchase(productId);
+            IAP.Instance.ConfirmPendingPurchase(productId);
         } 
-        catch (Exception e) {
+        catch (Exception e) 
+        {
             AppendText($"Problem with confirming purchase: {e.Message}");
         }
     }
@@ -146,16 +151,22 @@ public class PurchaseTestScene : MonoBehaviour {
     /// <summary>
     /// Restore button clicked.
     /// </summary>
-    public void OnClickRestore() {
+    public void OnClickRestore() 
+    {
         AppendText("clicked restore, waiting for response...");
 
-        try {
-            NewAppleStore.Instance.Restore(() => {
+        try 
+        {
+            IAP.Instance.Restore(() => 
+            {
                 AppendText($"Restore attempt success");
-            }, () => {
+            }, () => 
+            {
                 AppendText($"Restore attempt failed");
             });
-        } catch(Exception e) {
+        } 
+        catch(Exception e) 
+        {
             AppendText($"Restore attempt failed, {e.Message}");
         }
     }
@@ -166,18 +177,29 @@ public class PurchaseTestScene : MonoBehaviour {
     /// <summary>
     /// Refresh button clicked.
     /// </summary>
-    public void OnClickRefresh() {
+    public void OnClickRefresh() 
+    {
+#if UNITY_ANDROID
+        AppendText("Android not support 'Refresh'");
+        return;
+#else
         AppendText("clicked refresh, waiting for response...");
 
-        try {
-            NewAppleStore.Instance.Refresh((receipt) => {
+        try 
+        {
+            IAP.Instance.Refresh((receipt) => 
+            {
                 AppendText($"Refresh attempt success with receipt: {receipt}");
-            }, () => {
+            }, () => 
+            {
                 AppendText($"Refresh attempt failed");
             });
-        } catch(Exception e) {
+        } 
+        catch(Exception e) 
+        {
             AppendText($"Refresh attempt failed, {e.Message}");
         }
+#endif
     }
     
     //========================================================
@@ -186,17 +208,24 @@ public class PurchaseTestScene : MonoBehaviour {
     /// <summary>
     /// Get expiration button clicked.
     /// </summary>
-    public void OnClickGetExpiration() {
+    public void OnClickGetExpiration() 
+    {
         AppendText("clicked get expiration, waiting for response...");
 
-        try {
-            var subInfo = NewAppleStore.Instance.GetSubscriptionInfo(productId);
-            if (subInfo == null) {
+        try 
+        {
+            var subInfo = IAP.Instance.GetSubscriptionInfo(productId);
+            if (subInfo == null) 
+            {
                 AppendText($"No sub info for product: {productId}");
-            } else {
+            } 
+            else 
+            {
                 AppendText($"Expiration: {subInfo.getExpireDate()}");
             }
-        } catch(Exception e) {
+        }
+        catch(Exception e) 
+        {
             AppendText($"get expiration attempt failed, {e.Message}");
         }
     }
@@ -204,11 +233,15 @@ public class PurchaseTestScene : MonoBehaviour {
     public void OnClickGetInfo() {
         AppendText("clicked GetInfo, waiting for response...");
 
-        try {
-            var subInfo = NewAppleStore.Instance.GetSubscriptionInfo(productId);
-            if (subInfo == null) {
+        try 
+        {
+            var subInfo = IAP.Instance.GetSubscriptionInfo(productId);
+            if (subInfo == null) 
+            {
                 AppendText($"No sub info for product: {productId}");
-            } else {
+            }
+            else 
+            {
                 StringBuilder sb = new StringBuilder();
 
                 // https://docs.unity3d.com/ja/2019.4/Manual/UnityIAPSubscriptionProducts.html
@@ -222,44 +255,31 @@ public class PurchaseTestScene : MonoBehaviour {
                 sb.Append("isAutoRenewing=").Append(subInfo.isAutoRenewing()).Append("\n");
                 AppendText($"{productId} info. {sb}");
             }
-        } catch(Exception e) {
+        } 
+        catch(Exception e) 
+        {
             AppendText($"click get info attempt failed, {e.Message}");
         }
     }
 
-    public void OnClickGetAvailableProducts() {
-        AppendText("clicked GetAvailableProducts, waiting for response...");
+    public void OnClickGetAvailableProducts() 
+    {
+        AppendText("clicked GetAllProducts, waiting for response...");
 
-        try {
-            Product[] products = NewAppleStore.Instance.GetAvailableProducts();
-            
-            if (products.Length == 0) {
-                AppendText("No products available to purchase");
-            }
+        try 
+        {
+            var products = IAP.Instance.GetAllProducts();
 
-            foreach (Product product in products) {
+            foreach (Product product in products) 
+            {
                 AppendText(
                     $"{product.definition.id}: availableToPurchase={product.availableToPurchase}, hasReceipt={product.hasReceipt}");
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) 
+        {
             AppendText($"click available products failed, {e.Message}");
         }
-    }
-
-    public void OnClickSKU() {
-#if UNITY_ANDROID
-        AppendText("Get SKU");
-        var skus = Hermes.IAP.Instance.GetSKUs();
-        foreach (var pair in skus)
-        {
-            AppendText("----------------");
-            AppendText(pair.Key);
-            AppendText("--");
-            AppendText(pair.Value.JsonSkuDetails);
-        }
-#else
-        AppendText("IOS not support 'get SKU'");
-#endif
     }
 
     //========================================================
@@ -274,7 +294,7 @@ public class PurchaseTestScene : MonoBehaviour {
     //========================================================
     // GET INTRODUCTORY OFFER DETAILS
     //========================================================
-    public async void OnClickIntroOffer() {
+    /*public async void OnClickIntroOffer() {
         string[] ids = new string[] {
             productId
         };
@@ -310,7 +330,7 @@ public class PurchaseTestScene : MonoBehaviour {
             }
         }
 
-    }
+    }*/
 
     //========================================================
     // UTILITY
