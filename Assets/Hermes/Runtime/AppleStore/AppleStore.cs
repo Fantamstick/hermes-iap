@@ -46,11 +46,6 @@ namespace Hermes {
         /// System asked to purchase from promotional purchase.
         /// </summary>
         Func<Product, UniTask<bool>> onPromotionalPurchase;
-        
-        /// <summary>
-        /// Callback for when restore is completed.
-        /// </summary>
-        Action<PurchaseResponse> onRestored;
 
         bool deferPurchaseCompatible;
         bool promotionalPurchaseCompatible;
@@ -389,9 +384,6 @@ namespace Hermes {
             // receipt validation tangle data not available.
             if (appleTangleData == null) {
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
-                onRestored?.Invoke(PurchaseResponse.Ok);
-                onRestored = null;
-                
                 return PurchaseProcessingResult.Complete;
             }
             
@@ -417,17 +409,11 @@ namespace Hermes {
                 }
 #endif
                 OnPurchased?.Invoke(PurchaseResponse.Ok, e.purchasedProduct);
-                onRestored?.Invoke(PurchaseResponse.Ok);
-                onRestored = null;
             } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");
                 OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
-                onRestored?.Invoke(PurchaseResponse.InvalidReceipt);
-                onRestored = null;
             } catch {
                 OnPurchased?.Invoke(PurchaseResponse.InvalidReceipt, e.purchasedProduct);
-                onRestored?.Invoke(PurchaseResponse.InvalidReceipt);
-                onRestored = null;
             }
 
             return PurchaseProcessingResult.Complete;
@@ -435,7 +421,6 @@ namespace Hermes {
 
         void IStoreListener.OnPurchaseFailed(Product p, PurchaseFailureReason reason) {
             Debug.LogWarning($"IAP purchase error: {reason}");
-            HandleRestoreFailure(reason);
 
             switch (reason) {
                 case PurchaseFailureReason.DuplicateTransaction:
@@ -489,77 +474,41 @@ namespace Hermes {
         /// (GooglePlay is automatic after Init)
         /// </summary>
         /// <returns>Refresh process successfully</returns>
-        public void RestorePurchases(int timeoutMs, Action<PurchaseResponse> onDone) {
+        public void RestorePurchases(int timeoutMs, Action onDone) {
             if (!IsInit) {
                 Debug.LogWarning("Cannot restore purchases. IAPManager not successfully initialized!");
-                onDone?.Invoke(PurchaseResponse.NoInit);
+                onDone?.Invoke();
                 return;
             }
 
             WaitForRestorePurchases(timeoutMs, onDone).Forget();
         }
 
-        async UniTask WaitForRestorePurchases(int timeoutMs, Action<PurchaseResponse> onDone) {
-            onRestored = onDone;
-            
+        async UniTask WaitForRestorePurchases(int timeoutMs, Action onDone) {
             apple.RestoreTransactions(result => {
-                // still waiting for result.
-                if (onRestored != null) {
-                    if (result) {
-                        DebugLog("Waiting for restore...");
-                    } else {
-                        DebugLog("Restore process rejected.");
-                        onDone(PurchaseResponse.Unknown);
-                        onRestored = null;
-                    }
+                if (result) {
+                    DebugLog("Waiting for restore...");
+                } else {
+                    DebugLog("Restore process rejected.");
                 }
+                onDone?.Invoke();
+                onDone = null;
             });
             
             int waitTime = 0;
             int waitFrame = 100;
-            while (!IsTimeout() && onRestored != null) {
+            while (!IsTimeout() && onDone != null) {
                 await Task.Delay(waitFrame);
                 waitTime += waitFrame;
             }
 
-            if (IsTimeout() && onRestored != null) {
+            if (IsTimeout() && onDone != null) {
                 DebugLog("Restore timeout");
-                onRestored(PurchaseResponse.Timeout);
-                onRestored = null;
+                onDone();
+                onDone = null;
             }
 
             bool IsTimeout() => waitTime >= timeoutMs;
-        }
-
-        void HandleRestoreFailure(PurchaseFailureReason reason) {
-            switch (reason) {
-                case PurchaseFailureReason.DuplicateTransaction:
-                    onRestored?.Invoke(PurchaseResponse.DuplicateTransaction);
-                    break;
-                case PurchaseFailureReason.PaymentDeclined:
-                    onRestored?.Invoke(PurchaseResponse.PaymentDeclined);
-                    break;
-                case PurchaseFailureReason.ProductUnavailable:
-                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
-                    break;
-                case PurchaseFailureReason.PurchasingUnavailable:
-                    onRestored?.Invoke(PurchaseResponse.ProductUnavailable);
-                    break;
-                case PurchaseFailureReason.SignatureInvalid:
-                    onRestored?.Invoke(PurchaseResponse.SignatureInvalid);
-                    break;
-                case PurchaseFailureReason.UserCancelled:
-                    onRestored?.Invoke(PurchaseResponse.UserCancelled);
-                    break;
-                case PurchaseFailureReason.ExistingPurchasePending:
-                    onRestored?.Invoke(PurchaseResponse.ExistingPurchasePending);
-                    break;
-                case PurchaseFailureReason.Unknown:
-                    onRestored?.Invoke(PurchaseResponse.Unknown);
-                    break;
-            }
-            
-            onRestored = null;
         }
 
         //*******************************************************************
