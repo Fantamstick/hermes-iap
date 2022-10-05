@@ -24,16 +24,18 @@ namespace Hermes {
         
         public bool IsDebugLogEnabled { get; set; }
 #if UNITY_IOS
+        // TODO
         /// <summary>
         /// Support for promotional purchases.
         /// </summary>
-        public bool PromotionalPurchaseCompatible { get; set; }
+        //public bool PromotionalPurchaseCompatible { get; set; }
         
+        // TODO
         /// <summary>
         /// Event when promotional purchase attempted from AppStore.
         /// </summary>
         /// <returns>true: continue with purchase. false: refuse purchase.</returns>
-        public Func<Product, UniTask<bool>> OnPromotionalPurchase { get; set; }
+        //public Func<Product, UniTask<bool>> OnPromotionalPurchase { get; set; }
 #endif
 
         public IAPBuilder(Dictionary<string, ProductType> products) {
@@ -70,15 +72,16 @@ namespace Hermes {
         }
         
 #if UNITY_IOS
+        // TODO
         /// <summary>
         /// Support IAP Promotions from AppStore.
         /// </summary>
         /// <param name="onPromotionalPurchase">Callback when promotional purchase requested. Return true to continue purchase.</param>
-        public static IAPBuilder WithPromotionSupport(this IAPBuilder builder, Func<Product, UniTask<bool>> onPromotionalPurchase) {
-            builder.PromotionalPurchaseCompatible = true;
-            builder.OnPromotionalPurchase = onPromotionalPurchase;
-            return builder;
-        }
+        //public static IAPBuilder WithPromotionSupport(this IAPBuilder builder, Func<Product, UniTask<bool>> onPromotionalPurchase) {
+        //    builder.PromotionalPurchaseCompatible = true;
+        //    builder.OnPromotionalPurchase = onPromotionalPurchase;
+        //    return builder;
+        //}
 #endif
     }
 }

@@ -110,7 +110,7 @@ public class AppStore : HermesStore
     /// <param name="groupProductIDs">Group products that productID belongs to.
     /// If empty or null, assume productID is in its own group.</param>
     /// <returns>Offer details if exists.</returns>
-    public IntroductoryOffer GetIntroductoryOfferDetailsAsync(string productID, string[] groupProductIDs = null) 
+    public IntroductoryOffer GetIntroductoryOfferDetails(string productID, string[] groupProductIDs = null) 
     {
         Dictionary<string,string> products = (extensions as IAppleExtensions).GetProductDetails();
         

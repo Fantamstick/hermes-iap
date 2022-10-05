@@ -1,3 +1,4 @@
+#if UNITY_ANDROID
 using System;
 using System.Linq;
 using System.Text;
@@ -131,3 +132,4 @@ public class GooglePlayStore : HermesStore
         }
     }
 }
+#endif
