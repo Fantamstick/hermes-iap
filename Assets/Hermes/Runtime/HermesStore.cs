@@ -38,13 +38,26 @@ public abstract class HermesStore : IStoreListener
     protected IAPBuilder iapBuilder;
     protected byte[] tangleData;
     
-    // IAP internal callback delegates
-    protected Action onInitSuccessCb;
-    protected Action<InitializationFailureReason> onInitFailureCb;
-    protected Func<Status, Product, PurchaseProcessingResult> onPurchaseSuccessCb;
-    protected Action<Product> onPurchaseDeferredCb;
-    protected Action<Status, PurchaseFailureReason> onPurchaseFailureCb;
+    // IAP internal callback events
+    event Action onInitSuccessCb;
+    event Action<InitializationFailureReason> onInitFailureCb;
+    event Func<Status, Product, PurchaseProcessingResult> onPurchaseSuccessCb;
+    event Action<Product> onPurchaseDeferredCb;
+    event Action<Status, PurchaseFailureReason> onPurchaseFailureCb;
 
+    // Allow parent store to call events
+    protected void CallInitSuccessCb() => onInitSuccessCb?.Invoke();
+    protected void CallInitFailCb(InitializationFailureReason reason) => onInitFailureCb?.Invoke(reason);
+    protected void CallPurchaseDeferredCb(Product product) => onPurchaseDeferredCb?.Invoke(product);
+    protected void CallPurchaseFailCb(Status status, PurchaseFailureReason reason)
+    {
+        onPurchaseFailureCb?.Invoke(status, reason);
+    }
+    protected PurchaseProcessingResult CallPurchaseSuccessCb(Status status, Product product)
+    {
+        return onPurchaseSuccessCb(status, product);
+    }
+    
     protected abstract IStoreConfiguration GetStoreConfiguration(ConfigurationBuilder builder);
     protected abstract IStoreExtension GetStoreExtensions(IExtensionProvider provider);
     protected abstract PurchaseProcessingResult OnProcessPurchase(PurchaseEventArgs purchaseEvent);
@@ -71,9 +84,31 @@ public abstract class HermesStore : IStoreListener
         Action<Product> onPurchaseDeferred,
         Action<Status, PurchaseFailureReason> onPurchaseFailure) 
     {
+        if (onInitSuccess != null)
+        {
+            onInitSuccessCb += onInitSuccess;
+        }
+        if (onInitFailure != null)
+        {
+            onInitFailureCb += onInitFailure;
+        }
+        if (onPurchaseSuccess != null)
+        {
+            onPurchaseSuccessCb += onPurchaseSuccess;
+        }
+        if (onPurchaseDeferred != null)
+        {
+            onPurchaseDeferredCb += onPurchaseDeferred;
+        }
+        if (onPurchaseFailure != null)
+        {
+            onPurchaseFailureCb += onPurchaseFailure;
+        }
+
         if (builder != null) 
         {
-            throw new InvalidOperationException("Init should only be called once.");
+            DebugLog("Init already called. Added callback events.");
+            return;
         }
 
         this.iapBuilder = iapBuilder;
@@ -88,12 +123,6 @@ public abstract class HermesStore : IStoreListener
         {
             builder.AddProduct(key, iapBuilder.Products[key]);
         }
- 
-        onInitSuccessCb = onInitSuccess;
-        onInitFailureCb = onInitFailure;
-        onPurchaseSuccessCb = onPurchaseSuccess;
-        onPurchaseDeferredCb = onPurchaseDeferred;
-        onPurchaseFailureCb = onPurchaseFailure;
 
         UnityPurchasing.Initialize(this, builder);
     }

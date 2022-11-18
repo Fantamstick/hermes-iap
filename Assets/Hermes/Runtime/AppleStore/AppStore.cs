@@ -79,23 +79,19 @@ public class AppStore : HermesStore
                         DebugLog(sb);
                     }
                 }
-                
-                return onPurchaseSuccessCb != null ? 
-                    onPurchaseSuccessCb(status, purchaseEvent.purchasedProduct) : 
-                    PurchaseProcessingResult.Pending;
-                
+
+                return CallPurchaseSuccessCb(status, purchaseEvent.purchasedProduct);
+
             } catch (IAPSecurityException err) {
                 Debug.Log($"Invalid receipt or security exception: {err.Message}");
-                onPurchaseFailureCb?.Invoke(status, PurchaseFailureReason.SignatureInvalid);
+                CallPurchaseFailCb(status, PurchaseFailureReason.SignatureInvalid);
             } catch (Exception err) {
                 Debug.Log($"Invalid receipt: {err.Message}");
-                onPurchaseFailureCb?.Invoke(status, PurchaseFailureReason.Unknown);
+                CallPurchaseFailCb(status, PurchaseFailureReason.Unknown);
             }
         } else {
             // no tangle data.
-            return onPurchaseSuccessCb != null ? 
-                onPurchaseSuccessCb(status, purchaseEvent.purchasedProduct) : 
-                PurchaseProcessingResult.Pending;
+            return CallPurchaseSuccessCb(status, purchaseEvent.purchasedProduct);
         }
         
         // purchase failed. 
