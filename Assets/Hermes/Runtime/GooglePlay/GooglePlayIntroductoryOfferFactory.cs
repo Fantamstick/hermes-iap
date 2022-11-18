@@ -1,18 +1,18 @@
 #if UNITY_ANDROID
 using System.Text.RegularExpressions;
-using Google.Play.Billing.Internal;
 using UnityEngine;
+using UnityEngine.Purchasing;
 
 namespace Hermes
 {
     internal class GooglePlayIntroductoryOfferFactory : IntroductoryOfferFactory
     {
-        public GooglePlayIntroductoryOfferFactory(SkuDetails sku)
+        public GooglePlayIntroductoryOfferFactory(GoogleProductMetadata sku)
         {
             // https://developer.android.com/reference/com/android/billingclient/api/SkuDetails?hl=ja
 #if DEBUG_IAP
             Debug.Log("---GooglePlayIntroductoryOfferFactory");
-            Debug.Log(sku.JsonSkuDetails);
+            Debug.Log(sku.originalJson);
 #endif
 
             // Subscription period, specified in ISO 8601 format.
@@ -24,15 +24,15 @@ namespace Hermes
 
             // common
             // the title of the product.
-            this.SetLocalizedTitle(sku.title);
+            this.SetLocalizedTitle(sku.localizedTitle);
             // the description of the product.
-            this.SetLocalizedDescription(sku.description);
+            this.SetLocalizedDescription(sku.localizedDescription);
             // Returns ISO 4217 currency code for price and original price.
-            this.SetISOCurrencyCode(sku.price_currency_code);
+            this.SetISOCurrencyCode(sku.isoCurrencyCode);
 
             // regular
-            this.SetRegularPrice(sku.price_amount_micros / 1000000);
-            this.SetLocalizedRegularPriceString(sku.price);
+            this.SetRegularPrice((float)sku.localizedPrice / 1000000);
+            this.SetLocalizedRegularPriceString(sku.localizedPriceString);
             this.SetRegularUnit(regularPeriod.Unit);
             this.SetRegularNumberOfUnit(regularPeriod.Number);
 
@@ -45,7 +45,7 @@ namespace Hermes
                 // The number of subscription billing periods for which the user will be given the introductory price, such as 3.
                 this.SetIntroductoryNumberOfPeriods(sku.introductoryPriceCycles);
                 // Introductory price in micro-units.
-                this.SetIntroductoryPrice(sku.introductoryPriceAmountMicros / 1000000);
+                this.SetIntroductoryPrice(sku.introductoryPrice);
                 // Formatted introductory price of a subscription, including its currency sign, such as €3.99.
                 this.SetIntroductoryPriceLocale(sku.introductoryPrice);
                 this.SetLocalizedIntroductoryPriceString(sku.introductoryPrice);
@@ -60,7 +60,7 @@ namespace Hermes
                 this.SetFreeTrialNumberOfPeriods(1);
             }
             
-            this.SetOriginalJson(sku.JsonSkuDetails);
+            this.SetOriginalJson(sku.originalJson);
         }
 
         class Period
@@ -72,7 +72,7 @@ namespace Hermes
             public int Months = 0;
             public int Years = 0;
 
-            private int FullDays => Days + (Weeks * 7) + (Months * 30) + (Years * 365);
+            int FullDays => Days + (Weeks * 7) + (Months * 30) + (Years * 365);
 
             public int Number
             {
@@ -99,9 +99,9 @@ namespace Hermes
         /// format of ISO 8601 duration
         /// https://en.wikipedia.org/wiki/ISO_8601#Durations
         /// </summary>f
-        private static readonly Regex _regex = new Regex(@"(?<length>[0-9]+)(?<unit>[Y|M|W|D])");
+        static readonly Regex _regex = new Regex(@"(?<length>[0-9]+)(?<unit>[Y|M|W|D])");
         
-        private Period GetPeriod(string isoValue)
+        Period GetPeriod(string isoValue)
         {
             if (string.IsNullOrEmpty(isoValue))
             {
@@ -125,7 +125,7 @@ namespace Hermes
             return period;
         }
 
-        private void CalcPeriod(Match match, Period period)
+        void CalcPeriod(Match match, Period period)
         {
             int len = int.Parse(match.Groups["length"].Value);
             switch (match.Groups["unit"].Value)

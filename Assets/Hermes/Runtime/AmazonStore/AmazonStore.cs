@@ -1,4 +1,5 @@
-﻿using System;
+﻿/*
+using System;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Security;
@@ -74,12 +75,7 @@ namespace Hermes {
                 Debug.LogError("Hermes is already in the process of initializing.");
                 return;
             }
-            
-            if (iapBuilder.DeferredPurchaseCompatible) {
-                Debug.LogError("Amazon store does not support deferred purchases");
-                return;
-            }
-            
+
             googleTangleData = iapBuilder.GoogleTangleData ?? null;
             
             var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
@@ -227,4 +223,5 @@ namespace Hermes {
         }
     }
 }
+*/
 

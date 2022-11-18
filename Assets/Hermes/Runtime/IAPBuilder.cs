@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
 
@@ -22,21 +21,21 @@ namespace Hermes {
         /// Google tangle data for IAP receipt validation.
         /// </summary>
         public byte[] GoogleTangleData { get; set; }
-        /// <summary>
-        /// Support deferred purchases.
-        /// </summary>
-        public bool DeferredPurchaseCompatible { get; set; }
+        
+        public bool IsDebugLogEnabled { get; set; }
 #if UNITY_IOS
+        // TODO
         /// <summary>
         /// Support for promotional purchases.
         /// </summary>
-        public bool PromotionalPurchaseCompatible { get; set; }
+        //public bool PromotionalPurchaseCompatible { get; set; }
         
+        // TODO
         /// <summary>
         /// Event when promotional purchase attempted from AppStore.
         /// </summary>
         /// <returns>true: continue with purchase. false: refuse purchase.</returns>
-        public Func<Product, UniTask<bool>> OnPromotionalPurchase { get; set; }
+        //public Func<Product, UniTask<bool>> OnPromotionalPurchase { get; set; }
 #endif
 
         public IAPBuilder(Dictionary<string, ProductType> products) {
@@ -67,25 +66,22 @@ namespace Hermes {
             return builder;
         }
 
-        /// <summary>
-        /// Support deferred purchases.
-        /// Register to `OnPurchaseDeferred` callback to listen.
-        /// </summary>
-        public static IAPBuilder WithDeferredPurchaseCompatibility(this IAPBuilder builder) {
-            builder.DeferredPurchaseCompatible = true;
+        public static IAPBuilder WithDebugLog(this IAPBuilder builder) {
+            builder.IsDebugLogEnabled = true;
             return builder;
         }
         
 #if UNITY_IOS
+        // TODO
         /// <summary>
         /// Support IAP Promotions from AppStore.
         /// </summary>
         /// <param name="onPromotionalPurchase">Callback when promotional purchase requested. Return true to continue purchase.</param>
-        public static IAPBuilder WithPromotionSupport(this IAPBuilder builder, Func<Product, UniTask<bool>> onPromotionalPurchase) {
-            builder.PromotionalPurchaseCompatible = true;
-            builder.OnPromotionalPurchase = onPromotionalPurchase;
-            return builder;
-        }
+        //public static IAPBuilder WithPromotionSupport(this IAPBuilder builder, Func<Product, UniTask<bool>> onPromotionalPurchase) {
+        //    builder.PromotionalPurchaseCompatible = true;
+        //    builder.OnPromotionalPurchase = onPromotionalPurchase;
+        //    return builder;
+        //}
 #endif
     }
 }
