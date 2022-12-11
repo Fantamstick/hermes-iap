@@ -84,14 +84,6 @@ public abstract class HermesStore : IStoreListener
         Action<Product> onPurchaseDeferred,
         Action<Status, PurchaseFailureReason> onPurchaseFailure) 
     {
-        if (onInitSuccess != null)
-        {
-            onInitSuccessCb += onInitSuccess;
-        }
-        if (onInitFailure != null)
-        {
-            onInitFailureCb += onInitFailure;
-        }
         if (onPurchaseSuccess != null)
         {
             onPurchaseSuccessCb += onPurchaseSuccess;
@@ -105,9 +97,25 @@ public abstract class HermesStore : IStoreListener
             onPurchaseFailureCb += onPurchaseFailure;
         }
 
+        if (controller != null)
+        {
+            DebugLog("Already successfully initialized. Added purchase related callback events.");
+            onInitSuccess();
+            return;
+        }
+        
+        if (onInitSuccess != null)
+        {
+            onInitSuccessCb += onInitSuccess;
+        }
+        if (onInitFailure != null)
+        {
+            onInitFailureCb += onInitFailure;
+        }
+        
         if (builder != null) 
         {
-            DebugLog("Init already called. Added callback events.");
+            DebugLog("Init already called but not complete. Added callback events.");
             return;
         }
 
@@ -147,6 +155,7 @@ public abstract class HermesStore : IStoreListener
     
     void IStoreListener.OnInitializeFailed(InitializationFailureReason error) {
         Debug.LogWarning($"Hermes could not be initialized! {error}");
+        builder = null; // allow later initialization requests.
         onInitFailureCb?.Invoke(error);
     }
 
