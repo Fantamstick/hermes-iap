@@ -171,3 +171,6 @@ fabric.properties
 
 
 googleplay.keystore
+
+# VScode
+.vscode/
