@@ -159,6 +159,13 @@ public abstract class HermesStore : IStoreListener
         onInitFailureCb?.Invoke(error);
     }
 
+    void IStoreListener.OnInitializeFailed(InitializationFailureReason error, string message) {
+        Debug.LogWarning($"Hermes could not be initialized! {error} {message}");
+        builder = null; // allow later initialization requests.
+        onInitFailureCb?.Invoke(error);
+    }
+
+
     //*******************************************************************
     // PRODUCT
     //*******************************************************************
