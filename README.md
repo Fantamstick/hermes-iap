@@ -1,4 +1,4 @@
-![](https://img.shields.io/badge/version-v6.0.0-green)
+![](https://img.shields.io/badge/version-v7.0.0-green)
 # Hermes IAP
 
 IAP manager package for Unity. Makes use of local receipt validation as specified in [Unity's  documentation](https://docs.unity3d.com/Manual/UnityIAPValidatingReceipts.html).
@@ -36,7 +36,7 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 
 ## Dependencies
 
-- Unity IAP  v4.12.2  (July 17, 2024)
+- Unity IAP  v4.13.0  (July 7, 2025)
 
 
 ## Installation as UPM Package
@@ -45,7 +45,7 @@ Add `https://github.com/Fantamstick/hermes-iap/Assets/Hermes` from the Package M
 or locate `manifest.json` in your Unity project's `Packages` folder and add the following dependencies:
 ```
 "dependencies": {
-  "com.fantamstick.hermesiap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#6.0.0",
+  "com.fantamstick.hermesiap": "https://github.com/Fantamstick/hermes-iap.git?path=Assets/Hermes#7.0.0",
   ...
 }
 ```
