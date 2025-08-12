@@ -59,6 +59,23 @@ After setting up the IAP settings on AppStoreConnect and/or GooglePlay, purchase
 - `DEBUG_IAP` for useful debug information logging during development.
 - `UNITY_PURCHASING` *required* for Android builds.
 
+# Build
+
+## Android
+
+Player Settings > Punlishing Settings
+
+- Check `Custom Main Gradle Template`,`Custom Launcher Gradle Template`,`Custom Gradle Properties Template`
+- Add `compileSdkVersion 35` to `launcherTemplate.gradle`,`mainTemplate.gradle`
+- Add 
+```
+android.aapt2FromMavenOverride=/Users/ユーザー名/Library/Android/sdk/build-tools/36.0.0/aapt2 // ローカルのAndoridSDKのpath
+android.suppressUnsupportedCompileSdk=35
+org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+```
+to `gradleTemplate.properties`
+
 # License
 
 Copyright (c) 2021 Fantamstick, Ltd
