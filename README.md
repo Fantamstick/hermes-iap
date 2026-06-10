@@ -31,7 +31,7 @@ IAP manager package for Unity. Makes use of local receipt validation as specifie
 
 ## Requirements
 
-- Unity: 2021.3.43f1
+- Unity: 6000.3.17f1
 - Tested on iOS, GooglePlay and Amazon Store
 
 ## Dependencies

@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
 
-public abstract class HermesStore : IStoreListener 
+public abstract class HermesStore : IDetailedStoreListener
 {
     public enum Status 
     {
@@ -153,11 +153,13 @@ public abstract class HermesStore : IStoreListener
         onInitSuccessCb?.Invoke();
     }
     
+#pragma warning disable CS0618
     void IStoreListener.OnInitializeFailed(InitializationFailureReason error) {
         Debug.LogWarning($"Hermes could not be initialized! {error}");
         builder = null; // allow later initialization requests.
         onInitFailureCb?.Invoke(error);
     }
+#pragma warning restore CS0618
 
     void IStoreListener.OnInitializeFailed(InitializationFailureReason error, string message) {
         Debug.LogWarning($"Hermes could not be initialized! {error} {message}");
@@ -230,11 +232,15 @@ public abstract class HermesStore : IStoreListener
         return OnProcessPurchase(purchaseEvent);
     }
 
-    void IStoreListener.OnPurchaseFailed(Product product, PurchaseFailureReason failureReason) 
+    void IDetailedStoreListener.OnPurchaseFailed(Product product, PurchaseFailureDescription failureDescription)
     {
-        DebugLog($"Hermes could not purchase! {failureReason}");
-        onPurchaseFailureCb?.Invoke(status, failureReason);
+        DebugLog($"Hermes could not purchase! {failureDescription.reason} - {failureDescription.message}");
+        onPurchaseFailureCb?.Invoke(status, failureDescription.reason);
     }
+
+#pragma warning disable CS0618
+    void IStoreListener.OnPurchaseFailed(Product product, PurchaseFailureReason failureReason) { }
+#pragma warning restore CS0618
 
     public void ConfirmPendingPurchase(string productId) 
     {
@@ -321,20 +327,27 @@ public abstract class HermesStore : IStoreListener
         DebugLog("Restoring purchases...");
         status = Status.Restore;
 
-        if (extensions is IAppleExtensions appleExtensions) 
+        if (extensions is IAppleExtensions appleExtensions)
         {
             appleExtensions.RestoreTransactions(HandleRestoreTransaction);
         }
-        else if (extensions is IGooglePlayStoreExtensions googlePlayExtensions) 
+        else if (extensions is IGooglePlayStoreExtensions googlePlayExtensions)
         {
             googlePlayExtensions.RestoreTransactions(HandleRestoreTransaction);
         }
+        else if (extensions is IAmazonExtensions)
+        {
+            // Amazon IAP does not provide a dedicated restore API.
+            // Purchases are automatically re-delivered at app launch by the Amazon SDK.
+            DebugLog("Amazon IAP: restore is handled automatically by the Amazon SDK at app launch.");
+            HandleRestoreTransaction(true, null);
+        }
 
-        void HandleRestoreTransaction(bool result) 
+        void HandleRestoreTransaction(bool result, string error)
         {
             status = Status.Idle;
-            DebugLog($"Restore transaction complete with result: {result}");
-            
+            DebugLog($"Restore transaction complete with result: {result}" + (error != null ? $" error: {error}" : ""));
+
             if (result) {
                 // This does not mean anything was restored,
                 // merely that the restoration process succeeded.

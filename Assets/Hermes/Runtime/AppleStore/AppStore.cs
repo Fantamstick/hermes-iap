@@ -188,11 +188,11 @@ public class AppStore : HermesStore
             DebugLog("Successfully refreshed purchases");
             status = Status.Idle;
             onCompleted?.Invoke(latestReceipt);
-        }, () => {
+        }, errorMessage => {
             // This handler will be invoked if the request fails,
             // such as if the network is unavailable or the user
             // enters the wrong password.
-            DebugLog("Refresh purchases unsuccessful");
+            DebugLog($"Refresh purchases unsuccessful: {errorMessage}");
             status = Status.Idle;
             onFailed?.Invoke();
         });
