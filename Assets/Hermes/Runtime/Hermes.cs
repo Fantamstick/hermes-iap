@@ -3,7 +3,7 @@
     public class IAP 
     {
 #if AMAZON
-        public static AmazonStore Instance { get; } = AmazonStore.CreateInstance();
+        // public static AmazonStore Instance { get; } = AmazonStore.CreateInstance();
 #elif UNITY_ANDROID
         public static GooglePlayStore Instance { get; } = GooglePlayStore.CreateInstance();
 #elif UNITY_IOS || UNITY_IPHONE
