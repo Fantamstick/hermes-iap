@@ -7,6 +7,7 @@ using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
 using UnityEngine.Purchasing.Security;
 
+#if UNITY_AMAZON
 public class AmazonStore : HermesStore
 {
     //*******************************************************************
@@ -131,3 +132,4 @@ public class AmazonStore : HermesStore
         (configuration as IAmazonConfiguration).WriteSandboxJSON(products);
     }
 }
+#endif // UNITY_AMAZON
