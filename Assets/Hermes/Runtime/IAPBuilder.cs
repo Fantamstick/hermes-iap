@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine.Purchasing;
-using UnityEngine.Purchasing.Extension;
 
 namespace Hermes {
     public class IAPBuilder {
@@ -12,7 +11,7 @@ namespace Hermes {
         /// <summary>
         /// Purchasing module.
         /// </summary>
-        public IPurchasingModule PurchasingModule { get; set; }
+        public object PurchasingModule { get; set; }
         /// <summary>
         /// Apple tangle data for IAP receipt validation.
         /// </summary>
@@ -61,7 +60,7 @@ namespace Hermes {
         /// <summary>
         /// Add Purchasing module.
         /// </summary>
-        public static IAPBuilder WithPurchasingModule(this IAPBuilder builder, IPurchasingModule module) {
+        public static IAPBuilder WithPurchasingModule(this IAPBuilder builder, object module) {
             builder.PurchasingModule = module;
             return builder;
         }

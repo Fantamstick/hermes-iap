@@ -121,7 +121,7 @@ public abstract class HermesStore : IDetailedStoreListener
 
         this.iapBuilder = iapBuilder;
         
-        var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
+        var module = (iapBuilder.PurchasingModule as IPurchasingModule) ?? StandardPurchasingModule.Instance();
         builder = ConfigurationBuilder.Instance(module);
         
         configuration = GetStoreConfiguration(builder);
@@ -335,6 +335,7 @@ public abstract class HermesStore : IDetailedStoreListener
         {
             googlePlayExtensions.RestoreTransactions(HandleRestoreTransaction);
         }
+#if UNITY_AMAZON
         else if (extensions is IAmazonExtensions)
         {
             // Amazon IAP does not provide a dedicated restore API.
@@ -342,6 +343,7 @@ public abstract class HermesStore : IDetailedStoreListener
             DebugLog("Amazon IAP: restore is handled automatically by the Amazon SDK at app launch.");
             HandleRestoreTransaction(true, null);
         }
+#endif
 
         void HandleRestoreTransaction(bool result, string error)
         {
