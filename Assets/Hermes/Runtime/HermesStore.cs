@@ -121,7 +121,7 @@ public abstract class HermesStore : IDetailedStoreListener
 
         this.iapBuilder = iapBuilder;
         
-        var module = (iapBuilder.PurchasingModule as IPurchasingModule) ?? StandardPurchasingModule.Instance();
+        var module = iapBuilder.PurchasingModule ?? StandardPurchasingModule.Instance();
         builder = ConfigurationBuilder.Instance(module);
         
         configuration = GetStoreConfiguration(builder);
