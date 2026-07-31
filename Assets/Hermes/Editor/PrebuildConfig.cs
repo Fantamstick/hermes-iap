@@ -12,10 +12,7 @@ public class PrebuildConfig : IPreprocessBuildWithReport {
     public int callbackOrder => 0;
     
     public void OnPreprocessBuild(BuildReport report) {
-#if AMAZON
-        UnityPurchasingEditor.TargetAndroidStore(AppStore.AmazonAppStore);
-        Debug.Log("Success: IAP Targeting Amazon Store");
-#elif UNITY_ANDROID
+#if UNITY_ANDROID
         UnityPurchasingEditor.TargetAndroidStore(AppStore.GooglePlay);
         Debug.Log("Success: IAP Targeting GooglePlay Store");
 #elif UNITY_IOS
