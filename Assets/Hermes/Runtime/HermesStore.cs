@@ -403,15 +403,24 @@ public abstract class HermesStore : IDetailedStoreListener
 
         void HandleRestoreTransaction(bool result, string error)
         {
-            status = Status.Idle;
             DebugLog($"Restore transaction complete with result: {result}" + (error != null ? $" error: {error}" : ""));
 
             if (result) {
                 // This does not mean anything was restored,
                 // merely that the restoration process succeeded.
-                WaitForRestoredPurchases(() => onCompleted?.Invoke());
+                WaitForRestoredPurchases(() =>
+                {
+                    // Do not overwrite the status if another operation started while waiting.
+                    if (status == Status.Restore)
+                    {
+                        status = Status.Idle;
+                    }
+
+                    onCompleted?.Invoke();
+                });
             } else {
                 // Restoration failed.
+                status = Status.Idle;
                 onFailed?.Invoke();
             }
         }
