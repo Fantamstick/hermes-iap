@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Hermes;
 using UnityEngine;
 using UnityEngine.Purchasing;
@@ -26,9 +28,179 @@ public class AppStore : HermesStore
         return builder.Configure<IAppleConfiguration>();
     }
 
-    protected override IStoreExtension GetStoreExtensions(IExtensionProvider provider) 
+    protected override IStoreExtension GetStoreExtensions(IExtensionProvider provider)
     {
         return provider.GetExtension<IAppleExtensions>();
+    }
+
+    //*******************************************************************
+    // STOREKIT 2 SUBSCRIPTION INFO
+    //*******************************************************************
+    /*
+    * The receipt based subscription info only knows about purchases written to the app receipt.
+    * Purchases shared through Family Sharing may be missing from it, while StoreKit 2 entitlements
+    * (Transaction.currentEntitlements) include them. Unity IAP exposes the StoreKit 2 based info
+    * on the orders, so keep it and use it to complement the receipt based info.
+    * On StoreKit 1 the order info is receipt based, so this changes nothing there.
+    */
+    readonly Dictionary<string, SubscriptionInfo> storeKitSubscriptions = new Dictionary<string, SubscriptionInfo>();
+    bool isListeningOrders;
+
+    protected override void OnBeforeStoreInitialize()
+    {
+        if (isListeningOrders)
+        {
+            return;
+        }
+
+        // Subscribe before Unity IAP does so the info is up to date
+        // when the purchase callbacks of the app are invoked.
+        var service = UnityIAPServices.DefaultPurchase();
+        service.OnPurchasesFetched += OnPurchasesFetched;
+        service.OnPurchasesFetchFailed += _ => CompleteRestoreWaits();
+        service.OnPurchasePending += order => CacheSubscriptionInfo(order);
+        service.OnPurchaseConfirmed += order => CacheSubscriptionInfo(order);
+        isListeningOrders = true;
+    }
+
+    protected override SubscriptionInfo GetSupplementarySubscriptionInfo(string productId)
+    {
+        if (string.IsNullOrEmpty(productId))
+        {
+            return null;
+        }
+
+        return storeKitSubscriptions.TryGetValue(productId, out var info) ? info : null;
+    }
+
+    void OnPurchasesFetched(Orders orders)
+    {
+        try
+        {
+            // Fetched orders are the current entitlements. Rebuild so that revoked or removed ones are dropped.
+            storeKitSubscriptions.Clear();
+
+            foreach (var order in orders.PendingOrders)
+            {
+                CacheSubscriptionInfo(order);
+            }
+
+            foreach (var order in orders.ConfirmedOrders)
+            {
+                CacheSubscriptionInfo(order);
+            }
+        }
+        catch (Exception e)
+        {
+            // Never break Unity IAP's event dispatch.
+            DebugLog($"Unable to read StoreKit subscription info: {e.Message}");
+        }
+
+        CompleteRestoreWaits();
+    }
+
+    //*******************************************************************
+    // RESTORE
+    //*******************************************************************
+    // Restoring succeeds before the restored purchases are fetched from StoreKit,
+    // so wait for the fetch to finish before reporting the restore as completed.
+    // That way IsSubscribedTo / GetSubscriptionInfo are up to date in onCompleted.
+    const int RestoreFetchTimeoutMilliseconds = 10000;
+    readonly List<Action> restoreWaits = new List<Action>();
+
+    protected override void WaitForRestoredPurchases(Action done)
+    {
+        var context = SynchronizationContext.Current;
+        if (!isListeningOrders || context == null)
+        {
+            done();
+            return;
+        }
+
+        var isDone = false;
+        Action complete = () =>
+        {
+            if (isDone)
+            {
+                return;
+            }
+
+            isDone = true;
+            done();
+        };
+
+        restoreWaits.Add(complete);
+
+        // Do not wait forever. Report completion as before if the fetch never answers.
+        Task.Delay(RestoreFetchTimeoutMilliseconds).ContinueWith(_ => context.Post(__ =>
+        {
+            if (isDone)
+            {
+                return;
+            }
+
+            DebugLog("Timed out waiting for restored purchases to be fetched.");
+            restoreWaits.Remove(complete);
+            complete();
+        }, null));
+    }
+
+    void CompleteRestoreWaits()
+    {
+        if (restoreWaits.Count == 0)
+        {
+            return;
+        }
+
+        var waits = restoreWaits.ToArray();
+        restoreWaits.Clear();
+
+        foreach (var complete in waits)
+        {
+            try
+            {
+                complete();
+            }
+            catch (Exception e)
+            {
+                // An exception in the app callback must not break Unity IAP's event dispatch.
+                Debug.LogException(e);
+            }
+        }
+    }
+
+    void CacheSubscriptionInfo(Order order)
+    {
+        try
+        {
+            var purchasedProducts = order?.Info?.PurchasedProductInfo;
+            if (purchasedProducts == null)
+            {
+                return;
+            }
+
+            foreach (var purchased in purchasedProducts)
+            {
+                var info = purchased?.subscriptionInfo;
+                if (info == null || string.IsNullOrEmpty(purchased.productId))
+                {
+                    continue;
+                }
+
+                if (storeKitSubscriptions.TryGetValue(purchased.productId, out var current) &&
+                    current.GetExpireDate() > info.GetExpireDate())
+                {
+                    continue;
+                }
+
+                storeKitSubscriptions[purchased.productId] = info;
+            }
+        }
+        catch (Exception e)
+        {
+            // Never break Unity IAP's event dispatch.
+            DebugLog($"Unable to read StoreKit subscription info: {e.Message}");
+        }
     }
 
     //*******************************************************************
