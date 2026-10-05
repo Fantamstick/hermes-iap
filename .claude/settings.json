@@ -1,13 +1,8 @@
 {
-  "model": "claude-sonnet-4-6",
-  "permission": {
+  "model": "claude-sonnet-5-5",
+  "effortLevel": "high",
+  "permissions": {
     "defaultMode": "plan"
-  },
-  "mcpServers": {
-    "unity": {
-      "command": "npx",
-      "args": ["-y", "@gamelooper/mcp-unity"]
-    }
   }
 }
 

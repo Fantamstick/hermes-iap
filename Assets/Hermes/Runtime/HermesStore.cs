@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.ExceptionServices;
 using Hermes;
 using UnityEngine;
 using UnityEngine.Purchasing;
@@ -61,7 +62,28 @@ public abstract class HermesStore : IDetailedStoreListener
     protected abstract IStoreConfiguration GetStoreConfiguration(ConfigurationBuilder builder);
     protected abstract IStoreExtension GetStoreExtensions(IExtensionProvider provider);
     protected abstract PurchaseProcessingResult OnProcessPurchase(PurchaseEventArgs purchaseEvent);
-    
+
+    /// <summary>
+    /// Called right before Unity IAP is initialized.
+    /// Subscriptions made here run before Unity IAP's own purchase event handlers.
+    /// </summary>
+    protected virtual void OnBeforeStoreInitialize() { }
+
+    /// <summary>
+    /// Store specific subscription info used to complement the receipt based one,
+    /// for purchases that are missing from the receipt (e.g. Family Sharing).
+    /// </summary>
+    /// <param name="productId">Store specific product ID</param>
+    /// <returns>Subscription info if available, otherwise null.</returns>
+    protected virtual SubscriptionInfo GetSupplementarySubscriptionInfo(string productId) => null;
+
+    /// <summary>
+    /// Called when the restore process succeeded, to wait until the restored purchases
+    /// are reflected before notifying the app. By default there is nothing to wait for.
+    /// </summary>
+    /// <param name="done">Call when the restore can be reported as completed.</param>
+    protected virtual void WaitForRestoredPurchases(Action done) => done();
+
     //*******************************************************************
     // INIT
     //*******************************************************************
@@ -131,6 +153,8 @@ public abstract class HermesStore : IDetailedStoreListener
         {
             builder.AddProduct(key, iapBuilder.Products[key]);
         }
+
+        OnBeforeStoreInitialize();
 
         UnityPurchasing.Initialize(this, builder);
     }
@@ -264,15 +288,53 @@ public abstract class HermesStore : IDetailedStoreListener
     public bool IsSubscribedTo(string subscriptionId) 
     {
         var subscription = controller.products.WithStoreSpecificID(subscriptionId);
-        if (subscription.receipt == null) 
+
+        SubscriptionInfo receiptInfo = null;
+        Exception receiptError = null;
+
+        // subscription either never existed OR it expired before the IAP initialization
+        // when there is no receipt.
+        if (subscription != null && subscription.receipt != null)
         {
-            // subscription either never existed OR it expired before the IAP initialization.
-            return false;
+            try
+            {
+                receiptInfo = new SubscriptionManager(subscription, null).getSubscriptionInfo();
+            }
+            catch (Exception e)
+            {
+                receiptError = e;
+            }
         }
 
-        var subscriptionManager = new SubscriptionManager(subscription, null);
-        var info = subscriptionManager.getSubscriptionInfo();
-        return info.isSubscribed() == Result.True;
+        var supplementaryInfo = GetSupplementarySubscriptionInfo(subscriptionId);
+        if (receiptError != null && supplementaryInfo == null)
+        {
+            // nothing to complement the receipt with. Keep the original behavior.
+            ExceptionDispatchInfo.Capture(receiptError).Throw();
+        }
+
+        var info = SelectLatestSubscriptionInfo(receiptInfo, supplementaryInfo);
+        return info != null && info.isSubscribed() == Result.True;
+    }
+
+    /// <summary>
+    /// Pick the subscription info that expires later.
+    /// The supplementary info is only used when it extends what the receipt says,
+    /// so the receipt based result is never downgraded.
+    /// </summary>
+    static SubscriptionInfo SelectLatestSubscriptionInfo(SubscriptionInfo receiptInfo, SubscriptionInfo supplementaryInfo)
+    {
+        if (supplementaryInfo == null)
+        {
+            return receiptInfo;
+        }
+
+        if (receiptInfo == null)
+        {
+            return supplementaryInfo;
+        }
+
+        return supplementaryInfo.GetExpireDate() > receiptInfo.GetExpireDate() ? supplementaryInfo : receiptInfo;
     }
     
     /// <summary>
@@ -290,25 +352,28 @@ public abstract class HermesStore : IDetailedStoreListener
         }
         
         var subscriptionManager = new SubscriptionManager(product, null);
-        
-        try 
+
+        SubscriptionInfo receiptInfo = null;
+
+        try
         {
-            var subInfo = subscriptionManager.getSubscriptionInfo();
-            
-            if (subInfo != null && subInfo.isAutoRenewing() == Result.Unsupported) 
-            {
-                // check for correct subscription type.
-                Debug.LogError("Hermes does not support non-renewable subscriptions.");
-                return null;
-            }
-            
-            return subInfo;
-        } 
-        catch (Exception e) 
+            receiptInfo = subscriptionManager.getSubscriptionInfo();
+        }
+        catch (Exception e)
         {
             DebugLog($"Unable to acquire subscription info: {e.Message}");
+        }
+
+        var subInfo = SelectLatestSubscriptionInfo(receiptInfo, GetSupplementarySubscriptionInfo(product.definition.storeSpecificId));
+
+        if (subInfo != null && subInfo.isAutoRenewing() == Result.Unsupported)
+        {
+            // check for correct subscription type.
+            Debug.LogError("Hermes does not support non-renewable subscriptions.");
             return null;
         }
+
+        return subInfo;
     }
 
     //*******************************************************************
@@ -344,7 +409,7 @@ public abstract class HermesStore : IDetailedStoreListener
             if (result) {
                 // This does not mean anything was restored,
                 // merely that the restoration process succeeded.
-                onCompleted?.Invoke();
+                WaitForRestoredPurchases(() => onCompleted?.Invoke());
             } else {
                 // Restoration failed.
                 onFailed?.Invoke();
