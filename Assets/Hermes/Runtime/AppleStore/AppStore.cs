@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Hermes;
+using Purchasing.Utilities;
 using UnityEngine;
 using UnityEngine.Purchasing;
 using UnityEngine.Purchasing.Extension;
@@ -305,34 +306,51 @@ public class AppStore : HermesStore
             return null;
         }
 
-        try 
+        // StoreKit 2: Unity IAP only exports the introductory offer when the user is eligible for it
+        // (Product.SubscriptionInfo.isEligibleForIntroOffer, per subscription group).
+        // So the offer is already filtered. The app receipt is not needed (and may be empty or stale).
+        if (!StoreKitSelector.UseStoreKit1())
         {
-            var receiptData = System.Convert.FromBase64String((configuration as IAppleConfiguration).appReceipt);
-            AppleReceipt receipt = new AppleValidator(tangleData).Validate(receiptData);
-            if (receipt == null || receipt.inAppPurchaseReceipts == null) 
+            return offer;
+        }
+
+        // StoreKit 1: check the app receipt for a previously used free trial / introductory offer.
+        try
+        {
+            var appReceipt = (configuration as IAppleConfiguration).appReceipt;
+            if (string.IsNullOrEmpty(appReceipt))
             {
-                // no previous subscription purchased. 
+                Debug.LogWarning($"Hermes: receipt unavailable. Unable to check previous introductory offer usage of {productID}.");
                 return offer;
             }
 
-            if (groupProductIDs == null || groupProductIDs.Length == 0) 
+            // The receipt is only read to show the offer, not to grant anything. So the signature is not validated.
+            // (tangleData is not available here, and the validator throws without it.)
+            AppleReceipt receipt = new AppleReceiptParser().Parse(System.Convert.FromBase64String(appReceipt));
+            if (receipt == null || receipt.inAppPurchaseReceipts == null)
+            {
+                // no previous subscription purchased.
+                return offer;
+            }
+
+            if (groupProductIDs == null || groupProductIDs.Length == 0)
             {
                 groupProductIDs = new string[] {productID};
             }
-            
+
             var prevCampaignPurchase = receipt.inAppPurchaseReceipts
-                .FirstOrDefault(r => 
+                .FirstOrDefault(r =>
                     groupProductIDs.Contains(r.productID) &&
                     (r.isFreeTrial != 0 || r.isIntroductoryPricePeriod != 0));
-                
-            if(prevCampaignPurchase != null) 
+
+            if(prevCampaignPurchase != null)
             {
-                // user already used free trial or introductory offer. 
+                // user already used free trial or introductory offer.
                 return null;
-            }   
-        } catch {
-            // unable to validate receipt or unable to access.
-            return null;
+            }
+        } catch (Exception e) {
+            // Unable to read the receipt. Apple's purchase sheet shows the actual charge, so keep the offer.
+            Debug.LogWarning($"Hermes: receipt unavailable. Unable to check previous introductory offer usage of {productID}. {e.Message}");
         }
 
         return offer;

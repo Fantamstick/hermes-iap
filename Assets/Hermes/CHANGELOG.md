@@ -1,4 +1,13 @@
 -----------------------
+7.0.10
+-----------------------
+- Fix free trial / introductory offer not shown on iOS with Unity IAP 5.x (StoreKit 2)
+    - IOSIntroductoryOfferFactory no longer fails on missing keys, and reads "introductoryType" (paymentMode)
+    - StoreKit 2: trust Unity IAP's eligibility (isEligibleForIntroOffer), no receipt check
+    - StoreKit 1: read the receipt without signature validation, keep the offer when the receipt is unavailable
+- Update dependency: com.unity.purchasing 5.4.1
+
+-----------------------
 6.0.0
 September 26, 2024
 -----------------------
