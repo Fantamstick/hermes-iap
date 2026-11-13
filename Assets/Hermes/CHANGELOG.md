@@ -1,4 +1,12 @@
 -----------------------
+7.0.11
+-----------------------
+- Fix purchase failure / cancel callback not fired with Unity IAP 5.x
+    - Unity IAP 5.x legacy bridge only calls IStoreListener.OnPurchaseFailed(Product, PurchaseFailureReason)
+    - Invoke onPurchaseFailureCb from that overload as well (once per purchase)
+- Notify PurchaseFailureReason.ProductUnavailable when the product to purchase is not found
+
+-----------------------
 7.0.10
 -----------------------
 - Fix free trial / introductory offer not shown on iOS with Unity IAP 5.x (StoreKit 2)

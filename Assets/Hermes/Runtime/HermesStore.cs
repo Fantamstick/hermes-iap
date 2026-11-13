@@ -32,6 +32,9 @@ public abstract class HermesStore : IDetailedStoreListener
     public bool IsInitAndReady => extensions != null;
 
     protected Status status = Status.Idle;
+    // Guards against notifying the same purchase failure twice
+    // (Unity IAP may call either of the OnPurchaseFailed overloads).
+    bool purchaseFailureNotified;
     protected IStoreController controller;
     protected IStoreExtension extensions;
     protected IStoreConfiguration configuration;
@@ -240,11 +243,15 @@ public abstract class HermesStore : IDetailedStoreListener
         if (product == null) 
         {
             Debug.LogWarning($"Product with ID: {productId} not found!");
+            // Unity IAP never reports this, so notify here to keep the app from staying busy.
+            // status is left untouched.
+            onPurchaseFailureCb?.Invoke(Status.Purchase, PurchaseFailureReason.ProductUnavailable);
             return;
         }
 
+        purchaseFailureNotified = false;
         status = Status.Purchase;
-        
+
         // try to purchase product.
         controller.InitiatePurchase(product);
     }
@@ -253,18 +260,41 @@ public abstract class HermesStore : IDetailedStoreListener
     {
         DebugLog($"Purchased: {purchaseEvent.purchasedProduct.definition.id}");
 
+        // a new purchase result arrived, so a later failure must be notified again.
+        purchaseFailureNotified = false;
+
         return OnProcessPurchase(purchaseEvent);
     }
 
+    // NOTE: product may be null in both OnPurchaseFailed overloads (Unity IAP 5.x legacy bridge). Do not use it.
     void IDetailedStoreListener.OnPurchaseFailed(Product product, PurchaseFailureDescription failureDescription)
     {
         DebugLog($"Hermes could not purchase! {failureDescription.reason} - {failureDescription.message}");
-        onPurchaseFailureCb?.Invoke(status, failureDescription.reason);
+        NotifyPurchaseFailed(failureDescription.reason);
     }
 
 #pragma warning disable CS0618
-    void IStoreListener.OnPurchaseFailed(Product product, PurchaseFailureReason failureReason) { }
+    void IStoreListener.OnPurchaseFailed(Product product, PurchaseFailureReason failureReason)
+    {
+        // Unity IAP 5.x (Legacy/PurchasingManager) only calls this overload.
+        DebugLog($"Hermes could not purchase! {failureReason}");
+        NotifyPurchaseFailed(failureReason);
+    }
 #pragma warning restore CS0618
+
+    /// <summary>
+    /// Notify purchase failure once per purchase.
+    /// </summary>
+    void NotifyPurchaseFailed(PurchaseFailureReason reason)
+    {
+        if (purchaseFailureNotified)
+        {
+            return;
+        }
+
+        purchaseFailureNotified = true;
+        onPurchaseFailureCb?.Invoke(status, reason);
+    }
 
     public void ConfirmPendingPurchase(string productId) 
     {
